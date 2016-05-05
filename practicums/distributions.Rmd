@@ -1,0 +1,80 @@
+---
+title: 'Psych 201s: Distributions'
+author: "mht"
+date: "May 5, 2016"
+output: html_document
+---
+
+A fundamental concept in probability and statistics is that of a probability distribution.
+There are different "families" of distributions, corresponding to different "random processes". 
+
+We'll consider a few here. 
+First, we'll explore the distributions using R. 
+Then, we'll see how to look at them using JAGS.
+
+# Bernoulli distribution
+
+The simplest probability distribution results from the random process of flipping a coin.
+
+There are 4 functions in R you can use to access probility distributions.
+
+### Samples
+
+My favorite function is the random sampling function. 
+syntax: rbinom(n = number_of_experiments, size = number_of_trials, prob = probability_of_success)
+for a single coin flip: number_of_trials = 1
+for a fair coin, probability_of_success = 0.5 (but for a biased coin, it could be between 0 and 1)
+outcome is either 0 (tails) or 1 (heads)...
+
+```{r samples}
+rbinom(100, size=1, prob=0.5)
+
+# kind of messy just looking at numbers, pass it qplot [this may require the tidyr package]
+rbinom(100, size=1, prob=0.5) %>%
+  qplot()
+
+# note: this is the same as qplot(rbinom(100, size=1, prob=0.5)) 
+# qplot is smart and if you give it a list of numbers, it will make you a histogram automagically
+```
+
+In all honesty, to think about distributions, I use the rbinom function 98% of the time. 
+But I'll introduce the other functions here, just for completeness.
+
+### Probability density
+
+dbinom gives you the probability of a certain outcome (technically, this is called the *probability density*)
+syntax: dbinom(x=outcome, size=number_of_trials, prob=probability_of_success) [also see ?dbinom]
+
+```{r density}
+dbinom(x=0, size=1, prob=0.5)
+# you can also supply a vector of outcomes
+dbinom(x=c(0,1), size=1, prob=0.9)
+```
+
+What happens if you set the outcome to a number other than 0 or 1?
+What happens if you set the probability_of_success to a number less than 0 or greater than 1?
+
+Let's not explore the number_of_trials parameter yet.
+
+### Quantile function
+
+qbinom is the opposite of dbinom.
+dbinom: outcome -> probability
+qbinom: probability -> outcome
+
+It's not exactly true but it's close. Actually, qbinom will give you the max(outcome).
+
+```{r quantile}
+qbinom(0.8, size=1, prob=0.5)
+```
+
+### Cumulative probability
+
+pbinom gives you the probability of outcome<=q (equal or less than)
+For the bernoulli distribution, this isn't very interesting as there are only two outcomes (0 or 1). 
+
+```{r cumulative}
+pbinom(q = 0, size=1, prob= 0.5)
+```
+
+
