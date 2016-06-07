@@ -1,0 +1,109 @@
+---
+title: 'Psych 201s: Distributions using WebPPL'
+author: "mht"
+date: "June 6, 2016"
+output: html_document
+---
+
+A fundamental concept in probability and statistics is that of a probability distribution.
+There are different "families" of distributions, corresponding to different "random processes". 
+
+We'll consider a few here. 
+We'll explore the distributions using WebPPL.
+
+# Bernoulli distribution
+
+The simplest probability distribution results from the random process of flipping a coin.
+
+
+My favorite function is the random sampling function. 
+syntax: rbinom(n = number_of_experiments, size = number_of_trials, prob = probability_of_success)
+for a single coin flip: number_of_trials = 1
+for a fair coin, probability_of_success = 0.5 (but for a biased coin, it could be between 0 and 1)
+outcome is either 0 (tails) or 1 (heads)...
+
+```{r samples}
+rbinom(n = 1, size = 1, prob = 0.5)
+```
+
+In WebPPL, you can access the flip of a single coin using the primitive `flip`
+```{r flip}
+library(rwebppl)
+webppl("bernoulli( { p : 0.5 } )")
+```
+
+Using RWebPPL, we will be writing the WebPPL model as a string `"flip({p:0.5})"`.
+`flip` takes a single parameter `p` inside of a parameter object `{p:0.5}` (Note: This is the exactly the idea of a dictionary from Python, or a JSON object from JavaScript).
+
+The function call is appreciably slower than `rbinom` because we are calling out to language WebPPL. 
+This call is a fixed-cost, however, and will be worth it once we start considering more interesting cases than just a single coin flip.
+
+Here, we've collected one sample. If we collect a bunch of samples, it would start to approximate the true distribution.
+
+In WebPPL, distributions can be accessed directly. They are denoted by their proper names with capital letters. A full list of distributions can be found [here](http://webppl.readthedocs.io/en/master/distributions.html)
+
+What happens if we make the same sort of call on the distribution `Bernoulli`?
+```{r Bernoulli}
+webppl("Bernoulli( { p: 0.5 } )")
+```
+
+We get out a table of probabilities. Each possible outcome of the random process (here, a coin flip) is an element of the **support**. Associated with each element of a support is the probability of that outcome. Note, unlike `bernoulli` (which can return different values each time you call it), `Bernoulli` is deterministic: It is a reflection of the true distribution. 
+
+# Binomial distribution
+
+What about if we wanted to flip the coin multiple times?
+If we don't don't care about the order of the flips, then this is what's called the Binomial distribution.
+
+```{r binomial.sample}
+webppl("binomial( {n:3, p:0.5 } )")
+```
+
+`binomial` takes in parameters `n` and `p`, bundled together in the same object structure we saw above. `p` is the weight of the coin; same as in `bernoulli`. `n` is the number of times you flip it (or, the number of coins you flip).
+Note that we know are getting out a number: it is the number of coins that came up heads (or, `TRUE`, as we saw above).
+
+What does the distribution look like?
+
+```{r binomial.dist}
+webppl("Binomial( {n:3, p:0.5 } )")
+```
+
+Interesting. So 1 and 2 heads are more probable than 0 or 3. Do you understand why?
+
+### Probability density
+
+dbinom gives you the probability of a certain outcome (technically, this is called the *probability density*)
+syntax: dbinom(x=outcome, size=number_of_trials, prob=probability_of_success) [also see ?dbinom]
+
+```{r density}
+dbinom(x=0, size=1, prob=0.5)
+# you can also supply a vector of outcomes
+dbinom(x=c(0,1), size=1, prob=0.9)
+```
+
+What happens if you set the outcome to a number other than 0 or 1?
+What happens if you set the probability_of_success to a number less than 0 or greater than 1?
+
+Let's not explore the number_of_trials parameter yet.
+
+### Quantile function
+
+qbinom is the opposite of dbinom.
+dbinom: outcome -> probability
+qbinom: probability -> outcome
+
+It's not exactly true but it's close. Actually, qbinom will give you the max(outcome).
+
+```{r quantile}
+qbinom(0.8, size=1, prob=0.5)
+```
+
+### Cumulative probability
+
+pbinom gives you the probability of outcome<=q (equal or less than)
+For the bernoulli distribution, this isn't very interesting as there are only two outcomes (0 or 1). 
+
+```{r cumulative}
+pbinom(q = 0, size=1, prob= 0.5)
+```
+
+
