@@ -145,26 +145,27 @@ We can't print out a probability table because the table is infinitely long.
 
 You may think this is a nit-picky detail, and that we could make some discretization or "binning" to show the distribution. You are right, we could do that. That would involve looking up the probability for different values. In WebPPL, there is a property of a distribution called `score`, which gives you that probability. (Actually, it gives you the log-probability.). To get out the probability, we're going to use the function: `exp`, which comes in a package that we're going to use throught this course called "bda".
 
-```{r gauss.discretized}
+```{r gauss.score}
 webppl("
-  Gaussian( {mu: 0, sigma:1 } ).score(0)
+  var x = 0
+  Gaussian( {mu: 0, sigma:1 } ).score(x)
 ")
 
 webppl("
   var x = 0
   exp( Gaussian( {mu: 0, sigma:1 } ).score(x) )
-", model_packages = c("bda"))
+", packages = c("./utils"))
 ```
 
 Let's do this for several x-values. We're going to use a function called `forloop`, which is like `repeat` except that it takes in actual values to be passed to the function. Because we are passing actual values, we want to make a function that takes in an argument (as opposed to repeat, where we made a function with no arguments).
 
-```{r}
+```{r gauss.discretized}
 discreteGaussian <- webppl("
 forloop(
   [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
   function (x) { return exp( Gaussian( {mu: 0, sigma:1 } ).score( x ) ) }
 )
-", model_packages = c("bda"))
+", packages = c("./utils"))
 
 data.frame(
   bins = c(-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5),
@@ -173,3 +174,20 @@ data.frame(
 ggplot(., aes( x = bins, y = probs ) )+
   geom_bar( stat = 'identity', position = position_dodge() )
 ```
+
+Try varying `mu` and `sigma`.
+
+Now let's make a continuous distribution from samples.
+
+```{r}
+webppl("
+repeat(
+  1000,
+  function () { return gaussian( {mu: 0, sigma:1 } ) }
+)
+", packages = c("./utils")) %>% 
+  qplot(.)
+```
+
+
+
