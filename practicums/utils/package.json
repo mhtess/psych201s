@@ -1,9 +1,9 @@
 {
-  "name": "bda",
-  "main": "bda.js",
+  "name": "utils",
+  "main": "utils.js",
   "webppl": {
     "wppl": [
-      "bda.wppl"
+      "utils.wppl"
     ],
   "headers":["header.js"]
   }
