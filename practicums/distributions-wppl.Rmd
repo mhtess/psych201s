@@ -14,19 +14,9 @@ We'll explore the distributions using WebPPL.
 # Bernoulli distribution
 
 The simplest probability distribution results from the random process of flipping a coin.
+It is called a Bernoulli distribution (some people just call it a flip).
 
-
-My favorite function is the random sampling function. 
-syntax: rbinom(n = number_of_experiments, size = number_of_trials, prob = probability_of_success)
-for a single coin flip: number_of_trials = 1
-for a fair coin, probability_of_success = 0.5 (but for a biased coin, it could be between 0 and 1)
-outcome is either 0 (tails) or 1 (heads)...
-
-```{r samples}
-rbinom(n = 1, size = 1, prob = 0.5)
-```
-
-In WebPPL, you can access the flip of a single coin using the primitive `flip`
+In WebPPL, you can access the flip of a single coin using the function `bernoulli`
 ```{r flip}
 library(rwebppl)
 webppl("bernoulli( { p : 0.5 } )")
@@ -67,43 +57,53 @@ What does the distribution look like?
 webppl("Binomial( {n:3, p:0.5 } )")
 ```
 
+Let's visualize this.
+
+```{r binomial.dist.viz}
+webppl("Binomial( {n:3, p:0.5 } )") %>%
+  ggplot(., aes( x = support, y = prob ))+
+  geom_bar( stat = 'identity', position = position_dodge() )
+```
+
 Interesting. So 1 and 2 heads are more probable than 0 or 3. Do you understand why?
 
-### Probability density
+Try changing `n`. What happens? Why? 
 
-dbinom gives you the probability of a certain outcome (technically, this is called the *probability density*)
-syntax: dbinom(x=outcome, size=number_of_trials, prob=probability_of_success) [also see ?dbinom]
+Try changing `p`. What happens? Why?
 
-```{r density}
-dbinom(x=0, size=1, prob=0.5)
-# you can also supply a vector of outcomes
-dbinom(x=c(0,1), size=1, prob=0.9)
+Try changing `n` to 6. And then play around with `p`. Imagine each support element is a position on a likert scale (add 1 to all the values if it makes you happy). What might `p` represent?
+
+# Sampling
+
+Often times, we don't have the true distribution to visualize. In these cases, we will have **samples** from the true distribution. We can use the function `repeat` to repeatedly sample. Check it out:
+
+```{r sample.repeat}
+webppl("
+  var sampleLikert = function ( ) { return binomial( {n:6, p:0.8} + 1) }
+  repeat(10, sampleLikert)
+")
 ```
 
-What happens if you set the outcome to a number other than 0 or 1?
-What happens if you set the probability_of_success to a number less than 0 or greater than 1?
+Now inside of our string `"..."`, we've actually written a whole program! This program has 2 lines. On the first line, we have made a new variable called `sampleLikert`. `sampleLikert` is a function (you can tell because it says `= function`). The empty parentheses `( )` is where the **arguments** of the function would normally go, but in this case, we've made a function that doesn't take any arguments. Inside of the curly-braces `{}` is what the function does. Here, what it does is sample from a `binomial` distribution and adds 1 to it. 
 
-Let's not explore the number_of_trials parameter yet.
+In the next line, we are repeating `sampleLikert` 10 times.
 
-### Quantile function
+Notice that we can't call `repeat` on `binomial( {n:6, p:0.8} )`. The reason is that `binomial( {n:6, p:0.8} )` is not a function (it is a *call* to a function), and `repeat` wants to repeat **a function**. So what we did here was make a function called `sampleLikert`. (FYI: We could have called it anything we wanted to.)
 
-qbinom is the opposite of dbinom.
-dbinom: outcome -> probability
-qbinom: probability -> outcome
+Technically, we didn't have to make a new function and give it a name. We could have passed `function ( ) ... ` directly into repeat.
 
-It's not exactly true but it's close. Actually, qbinom will give you the max(outcome).
+Just aesthetics.
 
-```{r quantile}
-qbinom(0.8, size=1, prob=0.5)
+Let's write it that way, and capture the output and visualize it.
+```{r sample.repeat.2}
+x <- webppl("
+  repeat(100, function ( ) { return binomial( {n:6, p:0.8} ) + 1 } )
+")
+print(x)
+qplot(x)
 ```
 
-### Cumulative probability
 
-pbinom gives you the probability of outcome<=q (equal or less than)
-For the bernoulli distribution, this isn't very interesting as there are only two outcomes (0 or 1). 
 
-```{r cumulative}
-pbinom(q = 0, size=1, prob= 0.5)
-```
 
 
