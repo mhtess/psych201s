@@ -39,6 +39,17 @@ webppl("Bernoulli( { p: 0.5 } )")
 
 We get out a table of probabilities. Each possible outcome of the random process (here, a coin flip) is an element of the **support**. Associated with each element of a support is the probability of that outcome. Note, unlike `bernoulli` (which can return different values each time you call it), `Bernoulli` is deterministic: It is a reflection of the true distribution. 
 
+Let's visualize this.
+
+```{r Bernoulli.viz}
+webppl("Bernoulli( { p: 0.5 } )") %>%
+  ggplot(., aes(x = factor(0), fill = support, y = prob ))+
+  geom_bar(stat='identity', width = 0.5)
+```
+
+Try changing around p. What happens? If TRUE / FALSE are two responses in a 2AfC, what does p represent?
+
+
 # Binomial distribution
 
 What about if we wanted to flip the coin multiple times?
@@ -97,7 +108,7 @@ Just aesthetics.
 Let's write it that way, and capture the output and visualize it.
 ```{r sample.repeat.2}
 x <- webppl("
-  repeat(100, function ( ) { return binomial( {n:6, p:0.8} ) + 1 } )
+  repeat(100, function () { return binomial( {n:6, p:0.8} ) + 1 } )
 ")
 print(x)
 qplot(x)
