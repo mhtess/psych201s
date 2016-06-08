@@ -43,7 +43,7 @@ Let's visualize this.
 
 ```{r Bernoulli.viz}
 webppl("Bernoulli( { p: 0.5 } )") %>%
-  ggplot(., aes(x = factor(0), fill = support, y = prob ))+
+  ggplot(., aes(x = "Bernoulli" , fill = support, y = prob ))+
   geom_bar(stat='identity', width = 0.5)
 ```
 
@@ -52,8 +52,9 @@ Try changing around p. What happens? If TRUE / FALSE are two responses in a 2AfC
 
 # Binomial distribution
 
-What about if we wanted to flip the coin multiple times?
-If we don't don't care about the order of the flips, then this is what's called the Binomial distribution.
+What about if we wanted to flip the coin multiple times? (or, equivalently, what if we collected some number of participants worth of data on a 2AFC).
+
+If we don't don't care about the order of the flips (or, the identities of our participants), then the data is distributed according to what's called the Binomial distribution.
 
 ```{r binomial.sample}
 webppl("binomial( {n:3, p:0.5 } )")
@@ -105,16 +106,70 @@ Technically, we didn't have to make a new function and give it a name. We could 
 
 Just aesthetics.
 
-Let's write it that way, and capture the output and visualize it.
+Let's write it that way, and capture the output and visualize it. We'll try it with 1000 samples.
+
 ```{r sample.repeat.2}
 x <- webppl("
-  repeat(100, function () { return binomial( {n:6, p:0.8} ) + 1 } )
+  repeat(1000, function () { return binomial( {n:6, p:0.8} ) + 1 } )
 ")
 print(x)
 qplot(x)
 ```
 
+## Discrete / Categorical / Multinomial distribution
+
+# Continuous distributions
+
+So far, we've looked at the random process governed by flipping a coin (and, flipping a coin multiple times). We've begun to see how these relate to 2AFC and likert scale judgments. Sometimes, however, we are dealing with genuinely *continuous* quantities, e.g. RT or IQ scores. We'll need to think about other kinds of distributions.
 
 
+# Gaussian distribution
+
+The Gaussian distribution is every lay person's favorite distribution. It is named after  [Carl Friedrich Gauss](https://en.wikipedia.org/wiki/Carl_Friedrich_Gauss) (1777-1855), one of the greatest (arguably, the greatest) mathematician of the last 2000 years. Colloquially, we refer to this distribution as the "Normal" distribution, as if there is something normal about it. I heard one of the preeminent probabilists of our time, Stanford Professor [Persi Diaconis](https://en.wikipedia.org/wiki/Persi_Diaconis), say that "Scientists use the normal distribution because they think it is a [mathematical] theorem. Mathematicians use the normal distribution because scientists tell them that's how the world works."
 
 
+You may be shocked that learn that some things are normally distributed and some things are not normally distributed. The Gaussian distribution is just one distribution. 
+
+What happens if we call this distribution in WebPPL?
+
+```{r gauss}
+webppl("Gaussian( {mu: 0, sigma:1 } ) ")
+```
+
+A Gaussian has 2 parameters: mean `mu` and standard deviation `sigma` (careful: in some systems, the Gaussian is parameterized by the mean and *variance*... *variance* being the standard deviation squared).
+
+In this situation, WebPPL doesn't give us a pretty probability table. Why not?
+
+The answer has to do with the **support** of the Gaussian distribution. Whereas before, we had a *finite* support; the support here is all numbers.. it is *infinite*. That is, every number has some probability under a Gaussian distribution (it may be a very small probability).
+We can't print out a probability table because the table is infinitely long. 
+
+You may think this is a nit-picky detail, and that we could make some discretization or "binning" to show the distribution. You are right, we could do that. That would involve looking up the probability for different values. In WebPPL, there is a property of a distribution called `score`, which gives you that probability. (Actually, it gives you the log-probability.). To get out the probability, we're going to use the function: `exp`, which comes in a package that we're going to use throught this course called "bda".
+
+```{r gauss.discretized}
+webppl("
+  Gaussian( {mu: 0, sigma:1 } ).score(0)
+")
+
+webppl("
+  var x = 0
+  exp( Gaussian( {mu: 0, sigma:1 } ).score(x) )
+", model_packages = c("bda"))
+```
+
+Let's do this for several x-values. We're going to use a function called `forloop`, which is like `repeat` except that it takes in actual values to be passed to the function. Because we are passing actual values, we want to make a function that takes in an argument (as opposed to repeat, where we made a function with no arguments).
+
+```{r}
+discreteGaussian <- webppl("
+forloop(
+  [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
+  function (x) { return exp( Gaussian( {mu: 0, sigma:1 } ).score( x ) ) }
+)
+", model_packages = c("bda"))
+
+data.frame(
+  bins = c(-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5),
+  probs = discreteGaussian
+) %>%
+ggplot(., aes( x = bins, y = probs ) )+
+  geom_bar( stat = 'identity', position = position_dodge() )
+```

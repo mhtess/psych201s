@@ -1,0 +1,10 @@
+{
+  "name": "bda",
+  "main": "bda.js",
+  "webppl": {
+    "wppl": [
+      "bda.wppl"
+    ],
+  "headers":["header.js"]
+  }
+}

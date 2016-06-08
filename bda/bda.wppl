@@ -1,0 +1,22 @@
+var foreach = function(lst, fn) {
+    var foreach_ = function(i) {
+        if (i < lst.length) {
+            fn(lst[i]);
+            foreach_(i + 1);
+        }
+    };
+    foreach_(0);
+};
+
+var marginalize = function(myERP, label){
+    Enumerate(function(){
+        var x = sample(myERP)
+        return x[label]
+    })
+};
+
+var forloop = function(lst, fn){
+    return map(fn, lst)
+};
+
+var exp = function(x){ return Math.exp(x) }
