@@ -1,3 +1,16 @@
+var forloop = function(lst, fn){
+    return map(fn, lst)
+};
+
+var exp = function(x){ return Math.exp(x) };
+
+var observe = function(args) {
+    var scr = _.isArray(args.data) ?
+            sum( map( function(d) { return args.link.score(d) }, args.data) ) :
+           args.link.score(args.data)
+    factor(scr)
+}
+
 var foreach = function(lst, fn) {
     var foreach_ = function(i) {
         if (i < lst.length) {
@@ -9,14 +22,9 @@ var foreach = function(lst, fn) {
 };
 
 var marginalize = function(myERP, label){
-    Enumerate(function(){
+    Infer({method: "enumerate"}, function(){
         var x = sample(myERP)
         return x[label]
     })
 };
 
-var forloop = function(lst, fn){
-    return map(fn, lst)
-};
-
-var exp = function(x){ return Math.exp(x) }
