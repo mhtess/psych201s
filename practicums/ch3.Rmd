@@ -1,0 +1,784 @@
+---
+title: "LW Chapter 3"
+author: "mht"
+date: "October 5, 2014"
+output: html_document
+---
+
+### 3.1 Inferring a rate
+
+```{r setup}
+setwd("/Users/mht/Documents/learning/class/teaching/16.3/practicums/")
+library(rwebppl)
+library(ggmcmc)
+#library(gridExtra)
+rm(list=ls())
+```
+
+```{r}
+model1 <- '
+// Unpack data
+var k = observed_data["k"]
+var n = observed_data["n"]
+// Inferring a Rate
+var myFirstModel = function() {
+   var p = uniform( {a:0, b:1} )    // sample a coin weight from a uniform distribution
+   observe({
+      data : k,           // Observed k number of Heads
+      link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
+   }) 
+   return {p : p}
+}
+'
+```
+
+
+```{r}
+## data
+# k = number of heads
+# n = number of coin flips
+observed_data <- list(k = 5, n = 10) # packaging data to pass to WebPPL
+
+# The following command calls WebPPL with specific options.
+wp <- webppl(
+  program_code = model1,
+  data = observed_data,
+  data_var = "observed_data",
+  inference_opts = list(method="MCMC", samples = 10000, burn = 5000),
+  ggmcmc = TRUE,
+  model_var = "myFirstModel",
+  packages = c("./utils")
+  )
+
+summary(wp)
+
+# Now let's plot a histogram for theta. 
+ggs_histogram(wp)+xlim(0,1)
+# some credible interval
+ggs_caterpillar(wp)+xlim(0,1)
+
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+# The commands below are useful for a quick overview:
+print(samples)  # a rough summary
+plot(samples)   # a visual representation
+traceplot(samples) # traceplot (press <enter> repeatedly to see the chains)
+
+#more info on what is returned:
+summary(samples)
+summary(samples$BUGSoutput)
+
+chain <- 1
+samples$BUGSoutput$sims.array[1:15,chain,]# array: element, chain, column (theta/deviance) 
+
+
+```
+
+#3.1.1
+Based on visual inspection, my estimate that the probability is higher than 0.4 and lower than 0.6 is roughly 50%. I did this by drawing a line at 0.4 and 0.6 and estimating the area with respect to the entire area.
+#3.1.2
+It seems to be about twice as likely that theta is equal to 0.5 than 0.7. I looked at the relative height of the two points.
+
+#3.1.3
+```{r, echo=FALSE}
+k <- 10 # number of heads
+n <- 20 # number of samples
+
+
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file =f, n.chains=2, n.iter=20000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(posterior)<-c('theta')
+# Now let's plot a histogram for theta. 
+
+ggplot(data=posterior,aes(x=theta))+
+ # geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2)+
+  theme_solarized()+
+  ggtitle('3.1.3: k=50, n=100')+
+  xlim(0,1)
+```
+This is much narrower than before.
+
+#3.1.4
+```{r}
+k <- 5 # number of heads
+n <- 10 # number of samples
+
+
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file =f, n.chains=2, n.iter=200000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(posterior)<-c('theta')
+# Now let's plot a histogram for theta. 
+ggplot(data=posterior,aes(x=theta))+
+  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  theme_bw()+
+  ggtitle('3.1.4a: k=5, n=10, n.iter=10x')+
+  xlim(0,1)
+
+
+
+k <- 50 # number of heads
+n <- 100 # number of samples
+
+
+samples <- jags(data, inits=myinits, parameters,
+       	 model.file =f, n.chains=2, n.iter=200000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(posterior)<-c('theta')
+# Now let's plot a histogram for theta. 
+ggplot(data=posterior,aes(x=theta))+
+  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  theme_bw()+
+  ggtitle('3.1.4b: k=50, n=100, n.iter=10x')+
+  xlim(0,1)
+```
+
+The width is controlled by the evidence (k & n). The smoothness is controlled by the number of smaples (n.iter).
+
+#3.1.5
+
+```{r}
+k <- 99 # number of heads
+n <- 100 # number of samples
+
+
+samples <- jags(data, inits=myinits, parameters,
+       	 model.file =f, n.chains=2, n.iter=200000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(posterior)<-c('theta')
+# Now let's plot a histogram for theta. 
+ggplot(data=posterior,aes(x=theta))+
+  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  theme_bw()+
+    ggtitle('3.1.5')+
+  xlim(0,1)
+```
+
+Non symmetric, very close to 1.
+
+```{r}
+k <- 0 # number of heads
+n <- 1 # number of samples
+
+
+samples <- jags(data, inits=myinits, parameters,
+          model.file =f, n.chains=2, n.iter=200000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(posterior)<-c('theta')
+# Now let's plot a histogram for theta. 
+ggplot(data=posterior,aes(x=theta))+
+  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  theme_bw()+
+  ggtitle('3.1.6')+
+  xlim(0,1)
+```
+Even with very little evidence, different from the prior. 
+
+### 3.2 Difference between two rates
+
+```{r}
+
+k1 <- 3
+k2 <- 11
+n1 <- 20
+n2 <- 20
+
+cat('# Difference Between Two Rates
+model{
+   # Observed Counts
+   k1 ~ dbin(theta1,n1)
+   k2 ~ dbin(theta2,n2)
+   # Prior on Rates
+   theta1 ~ dbeta(1,1)
+   theta2 ~ dbeta(1,1)
+   # Difference Between Rates
+   delta <- theta1-theta2
+}',file={f<-tempfile()})
+
+data <- list("k1", "k2", "n1", "n2") # to be passed on to JAGS
+myinits <-  list(
+  list(theta1 = 0.1, theta2 = 0.9))
+
+# parameters to be monitored:	
+parameters <- c("delta", "theta1", "theta2")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file =f, n.chains=1, n.iter=10000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+post_delta <- data.frame(samples$BUGSoutput$sims.list$delta)
+names(post_delta)<-c('delta')
+ggplot(data=post_delta,aes(x=delta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='blue')+
+  theme_bw()+
+  ggtitle('3.2')+
+  xlim(-1,1)
+
+post_theta <- data.frame(theta1=samples$BUGSoutput$sims.list$theta1,
+                         theta2=samples$BUGSoutput$sims.list$theta2)
+
+d.t<- gather(post_theta,key,val)
+ggplot(data=d.t,aes(x=val,fill=key))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,alpha=0.7)+
+  theme_bw()+
+  xlim(0,1)
+
+
+
+# mean of delta:
+mean(post_delta$delta)
+# median of delta:
+median(post_delta$delta)
+# mode of delta, estimated from the "density" smoother:
+density(post_delta$delta)$x[which(density(post_delta$delta)$y==max(density(post_delta$delta)$y))]
+# 95% credible interval for delta:
+quantile(post_delta$delta, c(.025,.975))
+```
+
+
+```{r}
+
+k1 <- 8
+k2 <- 7
+n1 <- 10
+n2 <- 10
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file =f, n.chains=1, n.iter=10000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+post_delta <- data.frame(samples$BUGSoutput$sims.list$delta)
+names(post_delta)<-c('delta')
+ggplot(data=post_delta,aes(x=delta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='blue')+
+  theme_bw()+
+  ggtitle('3.2.1a: k1=8, n1=10; k2=7; n2=10')+
+  xlim(-1,1)
+
+k1 <- 80
+k2 <- 70
+n1 <- 100
+n2 <- 100
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file ="Rate_2.txt", n.chains=1, n.iter=10000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+post_delta <- data.frame(samples$BUGSoutput$sims.list$delta)
+names(post_delta)<-c('delta')
+ggplot(data=post_delta,aes(x=delta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='blue')+
+  theme_bw()+
+  ggtitle('3.2.1b: k1=80, n1=100; k2=70; n2=100')+
+  xlim(-1,1)
+
+```
+
+
+```{r}
+k1 <- 0
+k2 <- 0
+n1 <- 1
+n2 <- 5
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file =f, n.chains=1, n.iter=10000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+post_delta <- data.frame(samples$BUGSoutput$sims.list$delta)
+names(post_delta)<-c('delta')
+ggplot(data=post_delta,aes(x=delta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='blue')+
+  theme_bw()+
+  ggtitle('3.2.2: k1=0, n1=1; k2=0; n2=5')+
+  xlim(-1,1)
+```
+
+We're more certain that theta2 is 0. Theta1 is a prior uniformly distributed between 0 and 1. Hence, we are more certain than Theta2 is less than Theta 1 --> delta > 0
+
+
+# 3.2.3
+
+Point estimates - unimodal
+Credible interval - unimodal
+
+
+### 3.3 Inferring a common rate
+
+```{r}
+
+rm(list=ls()) 
+
+k1 <- 14
+k2 <- 16
+n1 <- 20
+n2 <- 20
+
+cat('# Inferring a Common Rate
+model{  
+   # Observed Counts
+   k1 ~ dbin(theta,n1)
+   k2 ~ dbin(theta,n2)
+   # Prior on Single Rate Theta
+   theta ~ dbeta(1,1)  
+}',file={f<-tempfile()})
+
+data <- list("k1", "k2", "n1", "n2") # to be passed on to JAGS
+myinits <-  list(
+  list(theta = 0.5))
+
+# parameters to be monitored:	
+parameters <- c("theta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file =f, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+post_theta <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(post_theta)<-c('theta')
+ggplot(data=post_theta,aes(x=theta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='green')+
+  theme_bw()+
+  ggtitle('3.3.1: k1=14, n1=20; k2=16; n2=20')+
+  xlim(0,1)
+
+mean(post_theta$theta)
+median(post_theta$theta)
+quantile(post_theta$theta, c(.025,.975))
+```
+
+# 3.3.1
+Seems like the 95% interval would be best here.
+
+```{r}
+
+k1 <- 0
+k2 <- 10
+n1 <- 10
+n2 <- 10
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file ="Rate_3.txt", n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+post_theta <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(post_theta)<-c('theta')
+quartz()
+ggplot(data=post_theta,aes(x=theta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='green')+
+  theme_bw()+
+  ggtitle('3.3.2: k1=0, n1=10; k2=10; n2=10')+
+  xlim(0,1)
+
+mean(post_theta$theta)
+median(post_theta$theta)
+quantile(post_theta$theta, c(.025,.975))
+```
+
+# 3.3.2
+No; might need a more sophisticated model (more than 1 latent cause).
+
+```{r}
+
+k1 <- 7
+k2 <- 3
+n1 <- 10
+n2 <- 10
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file ="Rate_3.txt", n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+post_theta <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(post_theta)<-c('theta')
+
+quartz()
+ggplot(data=post_theta,aes(x=theta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='green')+
+  theme_bw()+
+  ggtitle('3.3.3a: k1=7, n1=10; k2=3; n2=10')+
+  xlim(0,1)
+
+mean(post_theta$theta)
+median(post_theta$theta)
+quantile(post_theta$theta, c(.025,.975))
+
+
+k1 <- 5
+k2 <- 5
+n1 <- 10
+n2 <- 10
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file ="Rate_3.txt", n.chains=1, n.iter=20000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+post_theta <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(post_theta)<-c('theta')
+
+quartz()
+ggplot(data=post_theta,aes(x=theta))+
+  #geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
+  geom_density(size=2,colour='green')+
+  theme_bw()+
+  ggtitle('3.3.3b: k1=5, n1=10; k2=5; n2=10')+
+  xlim(0,1)
+
+mean(post_theta$theta)
+median(post_theta$theta)
+quantile(post_theta$theta, c(.025,.975))
+```
+
+
+Why isn't it a narrower distribution in the second case?
+
+
+### 3.4 Prior and posterior prediction
+
+```{r}
+k <- 1
+n <- 15
+# Uncomment for Trompetter Data
+# k <- 24
+# n <- 121
+
+data <- list("k", "n") # to be passed on to JAGS
+myinits <-  list(list(theta = 0.5, thetaprior = 0.5))
+
+# parameters to be monitored:	
+parameters <- c("theta", "thetaprior", "postpredk", "priorpredk")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file ="Rate_4.txt", n.chains=1, n.iter=5000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<- data.frame(samples$BUGSoutput$sims.list$theta)
+names(df)[1]<-'theta'
+df$thetaprior <- samples$BUGSoutput$sims.list$thetaprior 
+df$postpredk  <- samples$BUGSoutput$sims.list$postpredk 
+df$priorpredk <- samples$BUGSoutput$sims.list$priorpredk
+mlt<-melt(df)
+mlt$param = NA
+mlt$dstr = NA
+mlt[mlt$variable%in%c('theta','thetaprior'),]$param = 'theta'
+mlt[mlt$variable%in%c('postpredk','priorpredk'),]$param = 'k'
+mlt[mlt$variable%in%c('priorpredk','thetaprior'),]$dstr = 'prior'
+mlt[mlt$variable%in%c('theta','postpredk'),]$dstr = 'post'
+
+ggplot(mlt, aes(x=value, fill=dstr)) + 
+  facet_wrap(~param,scales='free') + 
+  geom_histogram(data = subset(mlt, param == 'k'),position='dodge',binwidth=1) +
+  geom_density(data = subset(mlt, param == 'theta'))+
+  theme_bw()
+```
+
+# 3.4.2
+
+```{r}
+k <- 1
+n <- 15
+# Uncomment for Trompetter Data
+# k <- 24
+# n <- 121
+
+data <- list("k", "n") # to be passed on to JAGS
+myinits <-  list(list(theta = 0.5, thetaprior = 0.5))
+
+# parameters to be monitored:  
+parameters <- c("theta", "thetaprior", "postpredk", "priorpredk")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file ="Rate_4_342.txt", n.chains=1, n.iter=5000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<- data.frame(samples$BUGSoutput$sims.list$theta)
+names(df)[1]<-'theta'
+df$thetaprior <- samples$BUGSoutput$sims.list$thetaprior 
+df$postpredk  <- samples$BUGSoutput$sims.list$postpredk 
+df$priorpredk <- samples$BUGSoutput$sims.list$priorpredk
+mlt<-melt(df)
+mlt$param = NA
+mlt$dstr = NA
+mlt[mlt$variable%in%c('theta','thetaprior'),]$param = 'theta'
+mlt[mlt$variable%in%c('postpredk','priorpredk'),]$param = 'k'
+mlt[mlt$variable%in%c('priorpredk','thetaprior'),]$dstr = 'prior'
+mlt[mlt$variable%in%c('theta','postpredk'),]$dstr = 'post'
+
+ggplot(mlt, aes(x=value, fill=dstr)) + 
+  facet_wrap(~param,scales='free') + 
+  geom_histogram(data = subset(mlt, param == 'k'),position='dodge',binwidth=1) +
+  geom_density(data = subset(mlt, param == 'theta'))+
+  theme_bw()
+```
+
+
+# 3.4.3
+
+```{r}
+k <- 1
+n <- 100
+m <- 10
+# Uncomment for Trompetter Data
+# k <- 24
+# n <- 121
+
+data <- list("k", "n", "m") # to be passed on to JAGS
+myinits <-  list(list(theta = 0.5, thetaprior = 0.5))
+
+# parameters to be monitored:  
+parameters <- c("theta", "thetaprior", "postpredk", "priorpredk")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file ="Rate_4_343.txt", n.chains=1, n.iter=5000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<- data.frame(samples$BUGSoutput$sims.list$theta)
+names(df)[1]<-'theta'
+df$thetaprior <- samples$BUGSoutput$sims.list$thetaprior 
+df$postpredk  <- samples$BUGSoutput$sims.list$postpredk 
+df$priorpredk <- samples$BUGSoutput$sims.list$priorpredk
+mlt<-melt(df)
+mlt$param = NA
+mlt$dstr = NA
+mlt[mlt$variable%in%c('theta','thetaprior'),]$param = 'theta'
+mlt[mlt$variable%in%c('postpredk','priorpredk'),]$param = 'k'
+mlt[mlt$variable%in%c('priorpredk','thetaprior'),]$dstr = 'prior'
+mlt[mlt$variable%in%c('theta','postpredk'),]$dstr = 'post'
+
+ggplot(mlt, aes(x=value, fill=dstr)) + 
+  facet_wrap(~param,scales='free') + 
+  geom_histogram(data = subset(mlt, param == 'k'),position='dodge',binwidth=1) +
+  geom_density(data = subset(mlt, param == 'theta'))+
+  theme_bw()
+```
+
+# 3.4.2
+
+```{r}
+#k <- 1
+#n <- 100
+#m <- 10
+# Uncomment for Trompetter Data
+k <- 24
+n <- 121
+
+data <- list("k", "n") # to be passed on to JAGS
+myinits <-  list(list(theta = 0.5, thetaprior = 0.5))
+
+# parameters to be monitored:  
+parameters <- c("theta", "thetaprior", "postpredk", "priorpredk")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file ="Rate_4.txt", n.chains=1, n.iter=5000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<- data.frame(samples$BUGSoutput$sims.list$theta)
+names(df)[1]<-'theta'
+df$thetaprior <- samples$BUGSoutput$sims.list$thetaprior 
+df$postpredk  <- samples$BUGSoutput$sims.list$postpredk 
+df$priorpredk <- samples$BUGSoutput$sims.list$priorpredk
+mlt<-melt(df)
+mlt$param = NA
+mlt$dstr = NA
+mlt[mlt$variable%in%c('theta','thetaprior'),]$param = 'theta'
+mlt[mlt$variable%in%c('postpredk','priorpredk'),]$param = 'k'
+mlt[mlt$variable%in%c('priorpredk','thetaprior'),]$dstr = 'prior'
+mlt[mlt$variable%in%c('theta','postpredk'),]$dstr = 'post'
+
+ggplot(mlt, aes(x=value, fill=dstr)) + 
+  facet_wrap(~param,scales='free') + 
+  geom_histogram(data = subset(mlt, param == 'k'),position='dodge',binwidth=1) +
+  geom_density(data = subset(mlt, param == 'theta'))+
+  theme_bw()
+```
+
+
+
+### 3.5 Posterior prediction
+
+
+```{r}
+
+k1 <- 0
+k2 <- 10
+n1 <- 10
+n2 <- 10
+
+data <- list("k1", "k2", "n1", "n2") # to be passed on to JAGS
+myinits <-  list(
+  list(theta = 0.5))
+
+# parameters to be monitored:	
+parameters <- c("theta", "postpredk1", "postpredk2")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file ="Rate_5.txt", n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+df<- data.frame(samples$BUGSoutput$sims.list$theta)
+names(df)[1]<-'theta'
+df$postpredk1 <- samples$BUGSoutput$sims.list$postpredk1
+df$postpredk2 <- samples$BUGSoutput$sims.list$postpredk2
+ 	 			 	 			
+#ggplot(df, aes(x=theta)) + 
+#  geom_density()+
+##  theme_bw()+
+#  xlim(0,1)
+
+
+df0<-melt(table(df[,2:3]))
+
+quartz()
+ggplot(df0, aes(x=postpredk1, y=postpredk2)) + 
+  geom_tile(aes(fill = value), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  theme_bw()
+```
+
+### 3.6 Joint distribution
+
+```{r}
+nmax <- 500
+k    <- c(16,18,22,25,27)
+#k    <- c(16,18,22,25,28)
+m    <- length(k)
+
+data <- list("nmax", "k", "m") # to be passed on to JAGS
+myinits <-  list(
+  list(theta = 0.5, n = nmax/2))
+
+# parameters to be monitored:	
+parameters <- c("theta", "n")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file ="Survey.txt", n.chains=1, n.iter=5000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+
+d <- data.frame(samples$BUGSoutput$sims.list$theta)
+names(d)[1]<-'theta'
+d$n <- samples$BUGSoutput$sims.list$n 
+
+## First calculate MLE:
+cc <- -Inf
+ind <- 0
+
+for (i in 1:length(d$n))
+{
+	logL <- 0
+	for(j in 1:m)
+	{		
+		logL <- logL+lgamma(d$n[i]+1)-lgamma(k[j]+1)-lgamma(d$n[i]-k[j]+1)
+		logL <- logL+k[j]*log(d$theta[i])+(d$n[i]-k[j])*log(1-d$theta[i])
+	}
+	if (logL>cc) 
+  {
+		ind <- i
+		cc <- logL
+	}
+}
+
+expct_n = mean(d$n)
+expct_theta = mean(d$theta)
+
+a<-ggplot(d, aes(x=n, y=theta)) + 
+  geom_point()+
+  geom_point(aes(x=expct_n,y=expct_theta),size =6,color='red')+
+  geom_point(aes(x=n[ind],y=theta[ind]),size =6,color='blue')+
+  theme_bw()
+
+b<-ggplot(d, aes(x=n))+
+  geom_histogram()+
+  theme_bw()
+
+c<-ggplot(d, aes(x=theta))+
+  geom_histogram(binwidth=0.025)+
+  theme_bw()+
+  coord_flip()+
+  scale_y_reverse()
+
+blankPanel<-grid.rect(gp=gpar(col="white"))
+quartz()
+grid.arrange(a,c,b,blankPanel,ncol=2)
+```
+
+
+Red dot is the marginal expected value of the joint posterior (taken from the mean of each of the marginal distributions, no?). Does this make sense?
+
+Blue dot is the MAP/MLE of the joint posterior (approximation to the mode). Does this make sense?
+
+Note: How much do the likelihoods of the MAP change from the two data sets?
+
+3.6.3 The mode (MLE) is very sensitive to the data. The expected value is not as much.
+```{r 3.6.4}
+traceplot(samples)
+# samples "sweep" through high and low values showning dependence of samples on previous samples
+# not ideal! ideally independent
+
+
+samples_thin <- jags(data, inits=myinits, parameters,
+     		 model.file ="Survey.txt", n.chains=1, n.iter=50000, 
+         n.burnin=1, n.thin=100, DIC=T)
+
+traceplot(samples_thin)
+
+
+# with more than 1 chain
+
+
+myinits <-  list(
+  list(theta = 0.5, n = nmax/2), list(theta=0.5, n=nmax/2))
+samples_thin <- jags(data, inits=myinits, parameters,
+   			 model.file ="Survey.txt", n.chains=2, n.iter=50000, 
+         n.burnin=1, n.thin=100, DIC=T)
+
+traceplot(samples_thin)
+```
