@@ -91,7 +91,7 @@ Often times, we don't have the true distribution to visualize. In these cases, w
 
 ```{r sample.repeat}
 webppl("
-  var sampleLikert = function ( ) { return binomial( {n:6, p:0.8} + 1) }
+  var sampleLikert = function ( ) { return binomial( {n:6, p:0.8} ) + 1 }
   repeat(10, sampleLikert)
 ")
 ```
