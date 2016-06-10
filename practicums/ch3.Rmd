@@ -16,12 +16,12 @@ rm(list=ls())
 ```
 
 ```{r}
-model1 <- '
+myFirstModel <- '
 // Unpack data
 var k = observed_data["k"]
 var n = observed_data["n"]
 // Inferring a Rate
-var myFirstModel = function() {
+var model = function() {
    var p = uniform( {a:0, b:1} )    // sample a coin weight from a uniform distribution
    observe({
       data : k,           // Observed k number of Heads
@@ -30,163 +30,74 @@ var myFirstModel = function() {
    return {p : p}
 }
 '
+# k = number of heads
+# n = number of coin flips
+# numSamples = number of samples for inference
+runModel = function(model, data, numSamples = 10000) {
+  # The following command calls WebPPL with specific options.
+  wp <- webppl(
+    program_code = model,
+    data = observed_data,
+    data_var = "observed_data",
+    inference_opts = list(method="MCMC", samples = numSamples, burn = numSamples/10),
+    ggmcmc = TRUE,
+    model_var = "model",
+    packages = c("./utils")
+    )
+  ggs_histogram(wp)+xlim(0,1)
+}
 ```
 
 
 ```{r}
-## data
-# k = number of heads
-# n = number of coin flips
-observed_data <- list(k = 5, n = 10) # packaging data to pass to WebPPL
-
-# The following command calls WebPPL with specific options.
-wp <- webppl(
-  program_code = model1,
-  data = observed_data,
-  data_var = "observed_data",
-  inference_opts = list(method="MCMC", samples = 10000, burn = 5000),
-  ggmcmc = TRUE,
-  model_var = "myFirstModel",
-  packages = c("./utils")
-  )
-
-summary(wp)
-
-# Now let's plot a histogram for theta. 
-ggs_histogram(wp)+xlim(0,1)
-# some credible interval
-ggs_caterpillar(wp)+xlim(0,1)
-
-# Now the values for the monitored parameters are in the "samples" object, 
-# ready for inspection.
-
-# The commands below are useful for a quick overview:
-print(samples)  # a rough summary
-plot(samples)   # a visual representation
-traceplot(samples) # traceplot (press <enter> repeatedly to see the chains)
-
-#more info on what is returned:
-summary(samples)
-summary(samples$BUGSoutput)
-
-chain <- 1
-samples$BUGSoutput$sims.array[1:15,chain,]# array: element, chain, column (theta/deviance) 
-
-
+observed_data <- list(k = 5, n = 10) 
+runModel(myFirstModel, observed_data)
 ```
 
 #3.1.1
-Based on visual inspection, my estimate that the probability is higher than 0.4 and lower than 0.6 is roughly 50%. I did this by drawing a line at 0.4 and 0.6 and estimating the area with respect to the entire area.
+Hint: remember that the probability of an interval is area under the curve
+
+
 #3.1.2
-It seems to be about twice as likely that theta is equal to 0.5 than 0.7. I looked at the relative height of the two points.
+
 
 #3.1.3
+
+
 ```{r, echo=FALSE}
-k <- 10 # number of heads
-n <- 20 # number of samples
-
-
-samples <- jags(data, inits=myinits, parameters,
-   			 model.file =f, n.chains=2, n.iter=20000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Collect posterior samples across all chains:
-posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
-names(posterior)<-c('theta')
-# Now let's plot a histogram for theta. 
-
-ggplot(data=posterior,aes(x=theta))+
- # geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
-  geom_density(size=2)+
-  theme_solarized()+
-  ggtitle('3.1.3: k=50, n=100')+
-  xlim(0,1)
+# Enter new k & n values here:
+observed_data <- list(k = ..., n = ...) 
+runModel(myFirstModel, observed_data)
 ```
-This is much narrower than before.
+
 
 #3.1.4
+
+Hint: we used 10000 samples above
+
 ```{r}
-k <- 5 # number of heads
-n <- 10 # number of samples
+observed_data <- list(k = 5, n = 10) 
+runModel(myFirstModel, observed_data, numSamples = ...)
 
-
-samples <- jags(data, inits=myinits, parameters,
-     		 model.file =f, n.chains=2, n.iter=200000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Collect posterior samples across all chains:
-posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
-names(posterior)<-c('theta')
-# Now let's plot a histogram for theta. 
-ggplot(data=posterior,aes(x=theta))+
-  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
-  theme_bw()+
-  ggtitle('3.1.4a: k=5, n=10, n.iter=10x')+
-  xlim(0,1)
-
-
-
-k <- 50 # number of heads
-n <- 100 # number of samples
-
-
-samples <- jags(data, inits=myinits, parameters,
-       	 model.file =f, n.chains=2, n.iter=200000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Collect posterior samples across all chains:
-posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
-names(posterior)<-c('theta')
-# Now let's plot a histogram for theta. 
-ggplot(data=posterior,aes(x=theta))+
-  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
-  theme_bw()+
-  ggtitle('3.1.4b: k=50, n=100, n.iter=10x')+
-  xlim(0,1)
+observed_data <- list(k = 50, n = 100) 
+runModel(myFirstModel, observed_data, numSamples = ...)
 ```
 
-The width is controlled by the evidence (k & n). The smoothness is controlled by the number of smaples (n.iter).
 
 #3.1.5
 
 ```{r}
-k <- 99 # number of heads
-n <- 100 # number of samples
-
-
-samples <- jags(data, inits=myinits, parameters,
-       	 model.file =f, n.chains=2, n.iter=200000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Collect posterior samples across all chains:
-posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
-names(posterior)<-c('theta')
-# Now let's plot a histogram for theta. 
-ggplot(data=posterior,aes(x=theta))+
-  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
-  theme_bw()+
-    ggtitle('3.1.5')+
-  xlim(0,1)
+observed_data <- list(k = ..., n = ...) 
+runModel(myFirstModel, observed_data)
 ```
 
-Non symmetric, very close to 1.
+#3.1.6
 
 ```{r}
-k <- 0 # number of heads
-n <- 1 # number of samples
-
-
-samples <- jags(data, inits=myinits, parameters,
-          model.file =f, n.chains=2, n.iter=200000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Collect posterior samples across all chains:
-posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
-names(posterior)<-c('theta')
-# Now let's plot a histogram for theta. 
-ggplot(data=posterior,aes(x=theta))+
-  geom_histogram(aes(y=..count../sum(..count..)),binwidth=0.02)+
-  theme_bw()+
-  ggtitle('3.1.6')+
-  xlim(0,1)
+observed_data <- list(k = ..., n = ...) 
+runModel(myFirstModel, observed_data)
 ```
-Even with very little evidence, different from the prior. 
-
+  
 ### 3.2 Difference between two rates
 
 ```{r}
