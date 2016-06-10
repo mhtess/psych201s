@@ -1,0 +1,523 @@
+---
+title: "ch11"
+author: "mht"
+date: "December 2, 2014"
+output: html_document
+---
+
+# Ch 11: Signal detection theory
+
+## 11.1: Signal detection theory
+
+```{r 11.1, echo=F}
+rm(list=ls()) 
+setwd("~/Documents/learning/tfbt/Lee&Wagenmakers/Code/CaseStudies/SignalDetection")
+source("heit_rotello.RData") #loads the data
+
+
+library(reshape2)
+library(ggplot2)
+library(R2jags)
+library(ggthemes)
+library(gridExtra)
+
+
+cat('# Signal Detection Theory
+model{
+  for (i in 1:k){
+  # Observed counts
+    h[i] ~ dbin(thetah[i],s[i])
+    f[i] ~ dbin(thetaf[i],n[i])
+    # Reparameterization Using Equal-Variance Gaussian SDT
+    thetah[i] <- phi(d[i]/2-c[i])
+    thetaf[i] <- phi(-d[i]/2-c[i])
+    # These Priors over Discriminability and Bias Correspond 
+    # to Uniform Priors over the Hit and False Alarm Rates
+    d[i] ~ dnorm(0,0.5)
+    c[i] ~ dnorm(0,2)
+  }
+}',file={fle<-tempfile()})
+
+
+k <- 3 #number of cases
+data <- matrix(c(70, 50, 30, 50, 7, 5, 3, 5, 10, 0, 0, 10), nrow=k, ncol=4, byrow=T)
+
+h <- data[,1]
+f <- data[,2]
+MI <- data[,3]
+CR <- data[,4]
+s <- h + MI
+n <- f + CR
+
+data <- list("h", "f", "k", "s", "n") # to be passed on to JAGS
+myinits <- list(
+  list(d = rep(0,k), c = rep(0,k)))  
+
+# parameters to be monitored:  
+parameters <- c("d", "c", "thetah", "thetaf")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			model.file = fle, n.chains=1, n.iter=10000, n.burnin=1, n.thin=1)
+
+
+df<- data.frame(d1 = samples$BUGSoutput$sims.list$d[,1],
+              d2 = samples$BUGSoutput$sims.list$d[,2],
+              d3 = samples$BUGSoutput$sims.list$d[,3],
+              c1 = samples$BUGSoutput$sims.list$c[,1],
+              c2 = samples$BUGSoutput$sims.list$c[,2],
+              c3 = samples$BUGSoutput$sims.list$c[,3],
+              h1 = samples$BUGSoutput$sims.list$thetah[,1],
+              h2 = samples$BUGSoutput$sims.list$thetah[,2],
+              h3 = samples$BUGSoutput$sims.list$thetah[,3],
+              f1 = samples$BUGSoutput$sims.list$thetaf[,1],
+              f2 = samples$BUGSoutput$sims.list$thetaf[,2],
+              f3 = samples$BUGSoutput$sims.list$thetaf[,3])
+
+df.m<- melt(df)
+df.m$metric <- factor(substring(df.m$variable,1,1),levels=c('d','c','h','f'),
+                      labels=c('discriminability','bias','hit rate','false alarm rate'))
+df.m$dset <- factor(substring(df.m$variable,2,2),labels=c('h=70/100, f=50/100',
+                                                          'h=7/10, f=5/10',
+                                                          'h=10/10 f=0/10'))
+
+ggplot(df.m,aes(x=value,fill=dset))+
+  geom_density(alpha=0.5)+
+  facet_wrap(~metric,scale='free')+
+  theme_solarized()
+```
+
+### Exercise 11.1.2
+
+```{r 11.1.2, echo=F}
+#Lehrner et al. (1995) data 
+k <- 3 #number of cases
+data <- matrix(c(148, 29, 32, 151, 150, 40, 30, 140, 150, 51, 40, 139), nrow=k, ncol=4, byrow=T)
+
+h <- data[,1]
+f <- data[,2]
+MI <- data[,3]
+CR <- data[,4]
+s <- h + MI
+n <- f + CR
+
+data <- list("h", "f", "k", "s", "n") # to be passed on to JAGS
+myinits <- list(
+  list(d = rep(0,k), c = rep(0,k)))  
+
+# parameters to be monitored:  
+parameters <- c("d", "c", "thetah", "thetaf")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file = fle, n.chains=1, n.iter=10000, n.burnin=1, n.thin=1)
+
+
+df<- data.frame(d1 = samples$BUGSoutput$sims.list$d[,1],
+              d2 = samples$BUGSoutput$sims.list$d[,2],
+              d3 = samples$BUGSoutput$sims.list$d[,3],
+              c1 = samples$BUGSoutput$sims.list$c[,1],
+              c2 = samples$BUGSoutput$sims.list$c[,2],
+              c3 = samples$BUGSoutput$sims.list$c[,3],
+              h1 = samples$BUGSoutput$sims.list$thetah[,1],
+              h2 = samples$BUGSoutput$sims.list$thetah[,2],
+              h3 = samples$BUGSoutput$sims.list$thetah[,3],
+              f1 = samples$BUGSoutput$sims.list$thetaf[,1],
+              f2 = samples$BUGSoutput$sims.list$thetaf[,2],
+              f3 = samples$BUGSoutput$sims.list$thetaf[,3])
+
+df.m<- melt(df)
+df.m$metric <- factor(substring(df.m$variable,1,1),levels=c('d','c','h','f'),
+                      labels=c('discriminability','bias','hit rate','false alarm rate'))
+df.m$dset <- factor(substring(df.m$variable,2,2),labels=c('control',
+                                                          'hiv + normalish CD4',
+                                                          'hiv + lo CD4'))
+
+ggplot(df.m,aes(x=value,fill=dset))+
+  geom_density(alpha=0.5)+
+  facet_wrap(~metric,scale='free')+
+  theme_solarized()
+```
+
+What conclusions do you draw from this analysis? What, if anything, can you infer about individual differences between the subjects in the same groups?
+
+
+## 11.2 Hierarchical SDT
+
+```{r 11.2, echo=F}
+
+
+cat('# Hierarchical Signal Detection Theory
+model{
+  for (i in 1:k){
+    # Observed counts
+    h[i] ~ dbin(thetah[i],s)
+    f[i] ~ dbin(thetaf[i],n)
+    # Reparameterization Using Equal-Variance Gaussian SDT
+    thetah[i] <- phi(d[i]/2-c[i])
+    thetaf[i] <- phi(-d[i]/2-c[i])
+    # Discriminability and Bias
+    c[i] ~ dnorm(muc,lambdac)
+    d[i] ~ dnorm(mud,lambdad)
+  }
+  # Priors
+  muc ~ dnorm(0,.001)
+  mud ~ dnorm(0,.001)
+  lambdac ~ dgamma(.001,.001)
+  lambdad ~ dgamma(.001,.001)
+  sigmac <- 1/sqrt(lambdac)
+  sigmad <- 1/sqrt(lambdad)
+}',file={g<-tempfile()})
+
+niter   <- 10000
+nburnin <- 1000
+
+for (dataset in 1:2) #analyze both conditions
+{
+  if (dataset == 1)
+		data <- std_i # the induction data
+	if (dataset == 2)
+		data <- std_d # the deduction data
+		 
+h <- data[,1]
+f <- data[,2]
+MI <- data[,3]
+CR <- data[,4]
+s <- h + MI
+n <- f + CR
+s <- s[1]; n <- n[1] #Each subject gets same number of signal and noise trials 
+k <- nrow(data)	
+
+  data <- list("h", "f", "s", "n", "k") # to be passed on to JAGS
+  myinits <- list(
+    list(d = rep(0, k), c = rep(0, k), mud = 0, muc = 0, lambdad = 1, lambdac = 1))  
+
+  # parameters to be monitored:	
+  parameters <- c("mud", "muc", "sigmad", "sigmac")
+	
+  if (dataset == 1) # induction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    isamples <- jags(data, inits=myinits, parameters,
+    	 			model.file =g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+
+  if (dataset == 2) # deduction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    dsamples <- jags(data, inits=myinits, parameters,
+    	 			model.file = g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+}		
+
+
+keepi <- 1000
+keep <- sample(niter, keepi)
+
+df <- data.frame(imud=isamples$BUGSoutput$sims.array[,,"mud"],
+                imuc=isamples$BUGSoutput$sims.array[,,"muc"],
+                dmud=dsamples$BUGSoutput$sims.array[,,"mud"],
+                dmuc=dsamples$BUGSoutput$sims.array[,,"muc"])
+df.m<- melt(df)
+df.m$task<- factor(substring(df.m$variable,1,1), levels=c("d","i"), labels=c("deduction","induction"))
+
+df.m$param <- factor(substring(df.m$variable,4,4), levels=c("c","d"), labels=c("bias", "discriminability"))
+
+df.m$seq <- with(df.m, ave(value, task, param, FUN = seq_along))
+df.mc <- dcast(df.m, task + seq ~ param, value.var='value')
+
+a<-ggplot(data=df.mc, aes(x=discriminability, y=bias, colour=task))+
+  geom_point()+
+  theme_solarized()+
+  xlim(-1,6)+
+  ylim(-3,3)
+
+b<-ggplot(data=df.mc, aes(x=discriminability, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  xlim(-1,6)
+
+c<-ggplot(data=df.mc, aes(x=bias, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  coord_flip()+
+  xlim(-3,3)
+
+grid.arrange(a,c,b, nrow=2)
+
+na.mean <- function(x){mean(x,na.rm=TRUE)}
+theta <- function(x,xdata,na.rm=T) {mean(xdata[x],na.rm=na.rm)}
+ci.low <- function(x,na.rm=T) {
+  mean(x,na.rm=na.rm) - quantile(bootstrap(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.025,na.rm=na.rm)}
+ci.high <- function(x,na.rm=T) {
+  quantile(bootstrap(1:length(x),1000,theta,x,na.rm=na.rm)$thetastar,.975,na.rm=na.rm) - mean(x,na.rm=na.rm)}
+
+
+library(dplyr)
+
+df.summary <- df.mc %>%
+  group_by(task) %>%
+  summarise_each(funs(na.mean,ci.high,ci.low),c(bias,discriminability))
+
+
+df.summary <- df.mc %>%
+  group_by(task) %>%
+  summarise_each(funs(na.mean,function(x){quantile(x,probs=c(0.025))},function(x){quantile(x,probs=c(0.975))},
+                      c(bias,discriminability)))
+
+
+
+agr.ci.collapsed <- function(x){
+  agr = aggregate(value ~ domain + syll + variable + experiment, data=x, FUN=mean)
+  agr$CILow = aggregate(value ~ domain + syll + variable + experiment, data=x, FUN=ci.low)$value
+  agr$CIHigh = aggregate(value ~ domain + syll + variable + experiment, data=x, FUN=ci.high)$value
+  agr$YMin = agr$value - agr$CILow
+  agr$YMax = agr$value + agr$CIHigh
+  return(agr)
+}
+
+```
+
+Of key interest for testing the Rips (2001) conjecture is how the group-level means for bias and (especially) discriminability differ between the induction and deduction conditions. What conclusion do you draw about the Rips (2001) conjecture base on the current analysis of the Heit and Rotello (2005) data?
+
+
+
+Exercise 11.2.2 Heit and Rotello (2005) used standard significance testing meth- ods on their data to reject the null hypothesis that there was no difference between discriminability for induction and deduction conditions. Their analy-
+sis involved calculating the mean discriminabilities for each participant, using edge-corrections where perfect performance was observed. These sets of dis- criminabilities gave means of 0.93 for the deduction condition and 1.68 for the induction condition. By calculating via the t statistic, and so assuming associ- ated Gaussian sampling distributions, and observing that the p-value was less than 0.01, Heit and Rotello (2005) rejected the null hypothesis of equal means. According to Heit and Rotello (2005), this finding of different discriminabili- ties provided evidence against the criterion-shifting uni-dimensional account offered by SDT. Is this consistent with your conclusions from the Bayesian analysis?
+
+
+### Exercise 11.2.3
+
+Re-run the analysis without discarding burn-in samples. This can be done by setting nburnin to 0. The result should look something like Figure 11.6. Notice the strange set of samples leading from zero to the main part of the sampled distribution. Explain why these samples exist, and why they suggest burn-in is important in this analysis.
+
+```{r 11.2.3, echo=FALSE}
+
+cat('# Hierarchical Signal Detection Theory
+model{
+  for (i in 1:k){
+    # Observed counts
+    h[i] ~ dbin(thetah[i],s)
+    f[i] ~ dbin(thetaf[i],n)
+    # Reparameterization Using Equal-Variance Gaussian SDT
+    thetah[i] <- phi(d[i]/2-c[i])
+    thetaf[i] <- phi(-d[i]/2-c[i])
+    # Discriminability and Bias
+    c[i] ~ dnorm(muc,lambdac)
+    d[i] ~ dnorm(mud,lambdad)
+  }
+  # Priors
+  muc ~ dnorm(0,.001)
+  mud ~ dnorm(0,.001)
+  lambdac ~ dgamma(.001,.001)
+  lambdad ~ dgamma(.001,.001)
+  sigmac <- 1/sqrt(lambdac)
+  sigmad <- 1/sqrt(lambdad)
+}',file={g<-tempfile()})
+
+niter   <- 10000
+nburnin <- 0
+
+for (dataset in 1:2) #analyze both conditions
+{
+  if (dataset == 1)
+  	data <- std_i # the induction data
+	if (dataset == 2)
+		data <- std_d # the deduction data
+		 
+h <- data[,1]
+f <- data[,2]
+MI <- data[,3]
+CR <- data[,4]
+s <- h + MI
+n <- f + CR
+s <- s[1]; n <- n[1] #Each subject gets same number of signal and noise trials 
+k <- nrow(data)	
+
+  data <- list("h", "f", "s", "n", "k") # to be passed on to JAGS
+  myinits <- list(
+    list(d = rep(0, k), c = rep(0, k), mud = 0, muc = 0, lambdad = 1, lambdac = 1))  
+
+  # parameters to be monitored:	
+  parameters <- c("mud", "muc", "sigmad", "sigmac")
+	
+  if (dataset == 1) # induction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    isamples <- jags(data, inits=myinits, parameters,
+    	 			model.file =g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+
+  if (dataset == 2) # deduction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    dsamples <- jags(data, inits=myinits, parameters,
+    	 			model.file = g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+}		
+
+
+keepi <- 1000
+keep <- sample(niter, keepi)
+
+df <- data.frame(imud=isamples$BUGSoutput$sims.array[,,"mud"],
+                imuc=isamples$BUGSoutput$sims.array[,,"muc"],
+                dmud=dsamples$BUGSoutput$sims.array[,,"mud"],
+                dmuc=dsamples$BUGSoutput$sims.array[,,"muc"])
+df.m<- melt(df)
+df.m$task<- factor(substring(df.m$variable,1,1), levels=c("d","i"), labels=c("deduction","induction"))
+
+df.m$param <- factor(substring(df.m$variable,4,4), levels=c("c","d"), labels=c("bias", "discriminability"))
+
+df.m$seq <- with(df.m, ave(value, task, param, FUN = seq_along))
+df.mc <- dcast(df.m, task + seq ~ param, value.var='value')
+
+a<-ggplot(data=df.mc, aes(x=discriminability, y=bias, colour=task))+
+  geom_point()+
+  theme_solarized()+
+  xlim(-1,6)+
+  ylim(-3,3)
+
+b<-ggplot(data=df.mc, aes(x=discriminability, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  xlim(-1,6)
+
+c<-ggplot(data=df.mc, aes(x=bias, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  coord_flip()+
+  xlim(-3,3)
+
+grid.arrange(a,c,b, nrow=2)
+```
+
+Maybe jags got better?
+
+
+## 11.3 Parameter expansion
+
+
+```{r 11.3, echo=F}
+cat('# Hierarchical SDT With Parameter Expansion
+model{
+  for (i in 1:k){
+    # Observed counts
+    h[i] ~ dbin(thetah[i],s)
+    f[i] ~ dbin(thetaf[i],n)
+    # Reparameterization Using Equal-Variance Gaussian SDT
+    thetah[i] <- phi(d[i]/2-c[i])
+    thetaf[i] <- phi(-d[i]/2-c[i])
+    # Discriminability and Bias
+    c[i] <- muc + xic*deltac[i]
+    d[i] <- mud + xid*deltad[i]
+    deltac[i] ~ dnorm(0,lambdac)
+    deltad[i] ~ dnorm(0,lambdad)
+  }
+  # Priors
+  muc ~ dnorm(0,0.001)
+  mud ~ dnorm(0,0.001)
+  xic ~ dbeta(1,1)
+  xid ~ dbeta(1,1)
+  lambdac ~ dgamma(.1,.1)
+  lambdad ~ dgamma(.1,.1)
+  sigmacnew <- 1/sqrt(lambdac)
+  sigmadnew <- 1/sqrt(lambdad)
+  sigmac <- abs(xic)*sigmacnew
+  sigmad <- abs(xid)*sigmadnew
+}',file={g<-tempfile()})
+
+
+niter   <- 10000
+nburnin <- 1000
+
+for (dataset in 1:2) #analyze both conditions
+{
+  if (dataset == 1)
+		data <- std_i # the induction data
+	if (dataset == 2)
+		data <- std_d # the deduction data
+		
+  h <- data[,1]
+  f <- data[,2]
+  MI <- data[,3]
+  CR <- data[,4]
+  s <- h + MI
+  n <- f + CR
+  s <- s[1]; n <- n[1] #Each subject gets same number of signal and noise trials 
+  k <- nrow(data)	
+
+  data <- list("h", "f", "s", "n", "k") # to be passed on to JAGS
+    myinits <- list(
+    list(deltac = rep(0, k), deltad = rep(0, k), xic = 0.5, xid = 0.5, muc = 0, mud = 0, lambdac = 1, lambdad = 1))  
+
+  # parameters to be monitored:	
+  parameters <- c("muc", "mud", "sigmac", "sigmad")
+	
+  if (dataset == 1) # induction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    isamples <- jags(data, inits=myinits, parameters,
+    	 			model.file =g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+
+  if (dataset == 2) # deduction
+	{
+    # The following command calls JAGS with specific options.
+    # For a detailed description see the R2jags documentation.
+    dsamples <- jags(data, inits=myinits, parameters,
+    	 			model.file =g,
+    	 			n.chains=1, n.iter=niter, n.burnin=nburnin, n.thin=1)				
+  }
+}		
+
+
+
+keepi <- 1000
+keep <- sample(niter, keepi)
+
+df <- data.frame(imud=isamples$BUGSoutput$sims.array[,,"mud"],
+                imuc=isamples$BUGSoutput$sims.array[,,"muc"],
+                dmud=dsamples$BUGSoutput$sims.array[,,"mud"],
+                dmuc=dsamples$BUGSoutput$sims.array[,,"muc"])
+df.m<- melt(df)
+df.m$task<- factor(substring(df.m$variable,1,1), levels=c("d","i"), labels=c("deduction","induction"))
+
+df.m$param <- factor(substring(df.m$variable,4,4), levels=c("c","d"), labels=c("bias", "discriminability"))
+
+df.m$seq <- with(df.m, ave(value, task, param, FUN = seq_along))
+df.mc <- dcast(df.m, task + seq ~ param, value.var='value')
+
+a<-ggplot(data=df.mc, aes(x=discriminability, y=bias, colour=task))+
+  geom_point()+
+  theme_solarized()+
+  xlim(-1,6)+
+  ylim(-3,3)
+
+b<-ggplot(data=df.mc, aes(x=discriminability, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  xlim(-1,6)
+
+c<-ggplot(data=df.mc, aes(x=bias, fill=task))+
+  geom_density(alpha=0.5)+
+  theme_solarized()+
+  coord_flip()+
+  xlim(-3,3)
+
+grid.arrange(a,c,b, nrow=2)
+
+```
+
+

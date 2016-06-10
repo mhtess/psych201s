@@ -1,0 +1,694 @@
+---
+title: "ch9"
+author: "mht"
+date: "November 5, 2014"
+output: html_document
+---
+
+# Chapter 9: Comparing binomial rates
+
+## 9.1 Equality of proportions
+
+```{r 9.1, echo=FALSE}
+
+library(R2jags)
+library(gridExtra)
+library(reshape2)
+library(polspline)
+library(ggplot2)
+
+setwd("/Users/mht/Documents/learning/tfbt/Lee&Wagenmakers/Code/ModelSelection/Means/")
+
+cat('# Pledgers
+model{
+  # Rates and Difference
+  theta1 ~ dbeta(1,1)
+  theta2 ~ dbeta(1,1)
+  delta <- theta1-theta2  
+  # Data
+  s1 ~ dbin(theta1,n1)
+  s2 ~ dbin(theta2,n2)
+  # Prior Sampling
+  theta1prior ~ dbeta(1,1)
+  theta2prior ~ dbeta(1,1)
+  deltaprior <- theta1prior-theta2prior
+}',file={f<-tempfile()})
+
+s1 <- 424
+s2 <- 5416
+n1 <- 777
+n2 <- 9072
+
+# two-sided p-value = 0.005848:
+prop.test(c(s1,s2), c(n1,n2), alternative = c("two.sided")) #approximate
+
+# Analytical Bayes factor:
+log.BF01 <- lchoose(n1,s1) + lchoose(n2,s2) + log(n1+1) + log(n2+1) - lchoose((n1+n2),(s1+s2)) - log(n1+n2+1)
+BF01 <- exp(log.BF01)
+
+data  <- list("s1","s2","n1","n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)),
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)),
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)))
+
+parameters <- c("theta1", "theta2", "delta", "deltaprior")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+# Now the values for delta and deltaprior are in the "samples" object, ready for inspection.
+
+######################################################
+# H1: delta is unrestricted
+######################################################
+
+# Collect posterior samples across all chains:
+df <-data.frame(delta.post=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+library(polspline) # this package can be installed from within R
+fit.prior     <- logspline(df$delta.prior, lbound=-1, ubound=1) # note the bounds.
+fit.posterior <- logspline(df$delta.post, lbound=-1, ubound=1)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- dlogspline(0, fit.prior)     # based on the logspline fit
+BF01          <- posterior/prior
+# 1/BF01 gives 2.14 -- Exact solution: 2.223484
+#BF01          <- posterior # because we know the height of the prior equals 1 at delta = 0 
+# 1/BF01 gives 2.17```
+
+a<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-1,1)+
+  xlab('Delta')
+
+b<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-0.05,0.05)+
+  xlab('Delta')
+
+grid.arrange(a,b,nrow=1)
+```
+
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+A reasonable interpretation of this Bayes factor is that the data do not pro- vide much evidence in favor of one hypothesis over the other. This seems more conservative than the interpretation that may be drawn from Bayesian parameter estimation, since the Bayesian 95% credible interval for the posterior of δ is approx- imately (−0.09,−0.01) and does not include 0. The reason for the discrepancy is that the Bayesian hypothesis test punishes H1 for assigning prior mass to values of δ that yield very low likelihoods.
+
+
+### Exercise 9.1.1
+
+Because the rate parameters θ1 and θ2 both have a uniform prior distribution, the prior distribution for the difference parameter δ can be found analytically as a triangular distribution. What are the advantages of using this result, rather than relying on computational sampling? What are the disadvantages?
+
+Ans:
+
+### Exercise 9.1.2
+
+In the current analysis, we put independent priors on θ1 and θ2. Do you think this is plausible? How would you change the model to take into account the possible dependence? How would this affect the outcome of the Bayesian test?
+
+```{r 9.1.2, echo=FALSE}
+cat('# Pledgers
+model{
+  # Rates and Difference
+  theta1 ~ dbeta(1,1)
+  theta2 ~ dbeta(1,1)
+  delta <- theta1-theta2  
+  # Data
+  s1 ~ dbin(theta1,n1)
+  s2 ~ dbin(theta2,n2)
+  # Prior Sampling
+  theta1prior ~ dbeta(1,1)
+  theta2prior ~ dbeta(1,1)
+  deltaprior <- theta1prior-theta2prior
+}',file={f<-tempfile()})
+
+
+
+data  <- list("s1","s2","n1","n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)),
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)),
+  list(theta1 = runif(1), theta2 = runif(1), theta1prior = runif(1), theta2prior = runif(1)))
+
+parameters <- c("theta1", "theta2", "delta", "deltaprior")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+# Now the values for delta and deltaprior are in the "samples" object, ready for inspection.
+
+######################################################
+# H1: delta is unrestricted
+######################################################
+
+# Collect posterior samples across all chains:
+df <-data.frame(delta.post=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.prior     <- logspline(df$delta.prior, lbound=-1, ubound=1) # note the bounds.
+fit.posterior <- logspline(df$delta.post, lbound=-1, ubound=1)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- dlogspline(0, fit.prior)     # based on the logspline fit
+BF01          <- posterior/prior
+
+a<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-1,1)+
+  xlab('Delta')
+
+b<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-0.05,0.05)+
+  xlab('Delta')
+
+grid.arrange(a,b,nrow=1)
+```
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+
+## 9.2 Order-restricted equality of proportions
+Whether pledgers are less likely than non-pledgers to use condoms has a natural interpretation as involving the order-restriction that the rate is lower for the pledgers than for the non-pledgers. 
+
+ This is the same sort of restriction involved in the two-country quiz example in Section 6.4, where it was addressed by using theta2 ∼ dunif(0,1) and theta1 ∼ dunif(0,theta2). While this approximate approach worked satisfactorily for inferring posterior distributions of parameters, an exact approach is needed in the current context of model comparison. This is because the approximate method does not generate a uniform prior distribution of θ1 and θ2 over the region of the joint parameter space satisfying the order-restriction, and model selection, unlike parameter estimation, is likely to be sensitive to this mismatch between available information and the implementation of the model.
+
+
+```{r 9.2, echo=F}
+# Pledgers, Order Constrained Rates
+cat('model{
+  # Order Constrained Rates
+  thetap[1:2] ~ dmnorm(mu[],TI[,])
+  theta1 <- phi(cos(angle)*thetap[1]-sin(angle)*abs(thetap[2]))
+  theta2 <- phi(sin(angle)*thetap[1]+cos(angle)*abs(thetap[2]))
+  
+  # Data
+  s1 ~ dbin(theta1,n1)
+  s2 ~ dbin(theta2,n2)
+  
+  # Difference
+  delta <- theta1-theta2  
+  
+  # Prior Sampling
+  thetapprior[1:2] ~ dmnorm(mu[],TI[,])
+  theta1prior <- phi(cos(angle)*thetapprior[1]-sin(angle)*abs(thetapprior[2]))
+  theta2prior <- phi(sin(angle)*thetapprior[1]+cos(angle)*abs(thetapprior[2]))
+  deltaprior  <- theta1prior-theta2prior
+  
+  # Constants
+  angle <- 45*3.1416/180
+  TI[1,1] <- 1
+  TI[1,2] <- 0
+  TI[2,1] <- 0
+  TI[2,2] <- 1
+  mu[1] <- 0
+  mu[2] <- 0
+}',file={f<-tempfile()})
+
+
+s1 <- 424
+s2 <- 5416
+n1 <- 777
+n2 <- 9072
+
+data  <- list("s1","s2","n1","n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(thetap = c(-.8,-.4)),
+  list(thetap = c(-.5,-.25)),
+  list(thetap = c(-.2,-.1)))
+
+parameters <- c("delta", "deltaprior")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file=f,
+	 			n.chains=3, n.iter=20000, n.burnin=1000, n.thin=1, DIC=T)
+
+# Collect posterior samples across all chains:
+df <-data.frame(delta.post=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.posterior <- logspline(df$delta.post, lbound=-1, ubound=0)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- 2*dlogspline(0, fit.prior)     # based on the logspline fit
+BF01          <- posterior/prior
+
+a<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-1,0)+
+  xlab('Delta')
+
+b<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-0.1,0)+
+  xlab('Delta')
+
+grid.arrange(a,b,nrow=1)
+
+```
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+### Exercise 9.2.1 
+
+Consider an order-restricted test of H0 : δ = 0 versus H3 : δ > 0. What do you think the result will be? Check your intuition by implementing the appropriate graphical model, and estimating the Bayes factor.
+
+
+### Approximate method
+
+```{r 9.2a, echo=F}
+# Pledgers, Order Constrained Rates
+cat('model{
+  # Order Constrained Rates
+  theta1 ~ dunif(0,theta2)
+  theta2 ~ dunif(0,1)
+  
+  # Data
+  s1 ~ dbin(theta1,n1)
+  s2 ~ dbin(theta2,n2)
+  
+  # Difference
+  delta <- theta1-theta2  
+  
+  # Prior Sampling
+  theta2prior ~ dunif(0,1)
+  theta1prior ~ dunif(0,theta2prior)
+  deltaprior  <- theta1prior-theta2prior
+  
+}',file={f<-tempfile()})
+
+
+s1 <- 424
+s2 <- 5416
+n1 <- 777
+n2 <- 9072
+
+data  <- list("s1","s2","n1","n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(thetap = c(-.8,-.4)),
+  list(thetap = c(-.5,-.25)),
+  list(thetap = c(-.2,-.1)))
+
+parameters <- c("delta", "deltaprior")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file=f,
+	 			n.chains=3, n.iter=20000, n.burnin=1000, n.thin=1, DIC=T)
+
+# Collect posterior samples across all chains:
+df <-data.frame(delta.post=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.posterior <- logspline(df$delta.post, lbound=-1, ubound=0)
+fit.prior     <- logspline(df$delta.prior, lbound=-1, ubound=1) # note the bounds.
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- 2*dlogspline(0, fit.prior)     # based on the logspline fit
+BF01          <- posterior/prior
+
+a<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-1,0)+
+  xlab('Delta')
+
+b<-ggplot(data=df)+
+  geom_density(aes(x=delta.post),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior)+
+  geom_point(x=0,y=posterior,color='red')+
+  theme_bw()+
+  xlim(-0.1,0)+
+  xlab('Delta')
+
+grid.arrange(a,b,nrow=1)
+
+```
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+
+## 9.3 Comparing within-subject proportions
+
+In the study phase of this experiment, all 74 subjects were presented with 21 pairs of similar pictures. In the test phase, all participants had to identify briefly presented target pictures among a set of two alternatives. The test phase was composed of 42 pairs of similar pictures, 21 of which had been presented in the study phase.
+
+```{r 9.3}
+### Zeelenberg data:
+# Study Both:         
+sb <- c(15,11,15,14,15,18,16,16,18,16,15,13,18,12,11,13,17,18,16,11,17,18,12,18,18,14,21,18,17,10,
+         11,12,16,18,17,15,19,12,21,15,16,20,15,19,16,16,14,18,16,19,17,11,19,18,16,16,11,19,18,12,
+         15,18,20, 8,12,19,16,16,16,12,18,17,11,20)
+nb <- 21
+
+# Study Neither: 
+sn <- c(15,12,14,15,13,14,10,17,13,16,16,10,15,15,10,14,17,18,19,12,19,18,10,18,16,13,15,20,13,15,
+         13,14,19,19,19,18,13,12,19,16,14,17,15,16,15,16,13,15,14,19,12,11,17,13,18,13,13,19,18,13,
+         13,16,18,14,14,17,12,12,16,14,16,18,13,13)
+nn <- 21
+ns <- length(sb)
+         
+# two-sided p-value = .03
+t.test(sb, sn, alternative = c("two.sided"), paired=T)
+
+data <- list("sb","sn","nb","nn", "ns") # to be passed on to JAGS
+  
+myinits <- list(
+  list(mu = .3, sigma = .5, delta = 1, sigmaalpha = 1),
+  list(mu = .5, sigma = 1, delta = 0, sigmaalpha = .5),
+  list(mu = .8, sigma = 1.5, delta = .5, sigmaalpha = 1.5))
+    
+cat('# Zeelenberg
+model{
+  for (i in 1:ns){
+    # Data
+    sb[i] ~ dbin(thetab[i],nb) 
+    sn[i] ~ dbin(thetan[i],nn)
+    # Probit Transformation
+    thetab[i] <- phi(phib[i])
+    thetan[i] <- phi(phin[i])
+    # Individual Parameters 
+    phin[i] ~ dnorm(mu,lambda)
+    alpha[i] ~ dnorm(mualpha,lambdaalpha)
+    phib[i] <- phin[i]+alpha[i]
+  }
+  # Priors
+  mu ~ dnorm(0,1)I(0,) 
+  sigma ~ dunif(0,10) 
+  lambda <- pow(sigma,-2)
+  # Priming Effect
+  sigmaalpha ~ dunif(0,10)
+  lambdaalpha <- pow(sigmaalpha,-2)
+  delta ~ dnorm(0,1)I(0,)
+  mualpha <- delta*sigmaalpha
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,1)I(0,)
+}
+
+', file={f<-tempfile()})
+
+
+parameters <- c("delta","deltaprior")
+
+
+samples <- jags(data, inits=myinits, parameters,
+	 			model.file=f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+# Now the values for delta are in the "samples" object, ready for inspection.
+
+# Collect posterior samples across all chains:
+df <-data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.posterior <- logspline(df$delta.posterior, lbound=0)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- 2*dnorm(0)                   # height of order--restricted prior at delta = 0
+BF01          <- posterior/prior
+
+ggplot(data=melt(df),aes(x=value,linetype=variable))+
+  geom_density()+
+  geom_point(x=0,y=prior,size=3)+
+  geom_point(x=0,y=posterior,color='red',size=3)+
+  theme_bw()+
+  xlim(0,4)+
+  xlab('Delta')
+
+```
+
+Posterior over prior Bayes Factor is `r BF01`
+
+Prior over posterior Bayes Factor is `r 1/BF01`
+
+### Exercise 9.3.1 
+
+The Zeelenberg data can also be analyzed using the Bayesian t-test discussed in Chapter 8. Think of a few reasons why this might not be such a good idea. Then, despite your reservations, apply the Bayesian t-test anyway. How do the results differ? Why?
+
+
+## 9.4 Comparing between-subject proportions
+
+```{r 9.4}
+### Geurts data:
+# Normal Controls:         
+num.errors <- c(15,10, 61,11, 60, 44, 63, 70, 57,11, 67, 21, 89,12, 63, 11, 96,10, 37,19, 44,18, 78, 27, 60,14)
+nc         <- c(89,74,128,87,128,121,128,128,128,78,128,106,128,83,128,100,128,73,128,86,128,86,128,100,128,79)
+kc         <- nc - num.errors
+nsc        <- length(kc)
+# ADHD:
+num.errors <- c(88, 50, 58,17, 40, 18,21, 50, 21, 69,19, 29,11, 76, 46, 36, 37, 72,27, 92,13, 39, 53, 31, 49, 
+                57,17,10,12,21, 39, 43, 49,17, 39,13, 68, 24, 21,27, 48, 54, 41, 75, 38, 76,21, 41, 61,24, 28,21)
+na         <- c(128,128,128,86,128,117,89,128,110,128,93,107,87,128,128,113,128,128,98,128,93,116,128,116,128,
+               128,93,86,86,96,128,128,128,86,128,78,128,111,100,95,128,128,128,128,128,128,98,127,128,93,110,96)
+ka         <- na - num.errors
+nsa        <- length(ka)
+           
+# two-sided p-value = .72
+t.test(kc/nc, ka/na, alternative = c("two.sided"), paired=F)
+
+data <- list("nc","kc","nsc","na","ka","nsa") # to be passed on to JAGS
+
+myinits <- list(
+  list(mu = 0, sigma = 1, delta = 0),
+  list(mu = -.8, sigma = 2, delta = -.5),
+  list(mu = .8, sigma = 1.5, delta = .5))
+
+parameters <- c("delta","deltaprior")
+
+cat('# Geurts
+model{
+  for (i in 1:nsc){
+    kc[i] ~ dbin(thetac[i],nc[i])
+    thetac[i] <- phi(phic[i])
+    phic[i] ~ dnorm(muc,lambda)
+  }
+  for (j in 1:nsa){
+    ka[j] ~ dbin(thetaa[j],na[j])
+    thetaa[j] <- phi(phia[j])
+    phia[j] ~ dnorm(mua,lambda)
+  }
+  muc <- mu+alpha/2
+  mua <- mu-alpha/2
+  # Priors
+  mu ~ dnorm(0,1)
+  sigma ~ dunif(0,10)
+  alpha <- delta*sigma
+  lambda <- pow(sigma,-2)  
+  delta ~ dnorm(0,1)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,1)
+}', file={f<-tempfile()})
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=100000, n.burnin=1000, n.thin=1, DIC=T)
+# Collect posterior samples across all chains:
+df <-data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.posterior <- logspline(df$delta.posterior)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- dnorm(0)                   # height of order--restricted prior at delta = 0
+BF01          <- posterior/prior
+
+df.m <- melt(df)
+
+ggplot(data=df.m,aes(x=value,linetype=variable))+
+  geom_density()+
+  geom_point(x=0,y=prior,size=3)+
+  geom_point(x=0,y=posterior,color='red',size=3)+
+  theme_bw()+
+  xlab('Delta')
+
+```
+
+Posterior over prior Bayes Factor is `r BF01`
+
+Prior over posterior Bayes Factor is `r 1/BF01`
+
+### Exercise 9.4.1 
+
+A between-subjects frequentist t-test on the proportion of correctly sorted cards does not allow one to reject the null hypothesis, t (40.2) = 0.37, p = 0.72. In what way does the Bayesian approach improve upon the frequentist inference?
+
+MH: We have a way to quantify evidence in support of the null hypothesis.
+
+### Exercise 9.4.2 
+
+In what way is the model of the data in Figure 9.10 superior to the statistical model assumed by the t-test?
+
+Ans: This t-test does not quantify the evidence in favor of the null hypothesis and ignores the fact that trials are nested in participants. This design calls for a hierarchical or multi-level analysis.
+
+
+## 9.5 Order-restricted between-subjects comparison
+
+A natural modification of the alternative hypothesis for the Geurts et al. (2004) data is to impose the order-restriction corresponding to the assumption that normal controls perform better than ADHD children. This alternative hypothesis is $H_{2}$ : δ > 0. This hypothesis seems reasonable to entertain because of its a priori plausibility, but the data suggest that, if anything, the reverse is true. What can we expect when we test $H_{0}$: δ=0 versus $H_{2}$: δ > 0 ?
+
+First, note that the posterior for δ is not far from being symmetric around zero. If it were completely symmetric, the height of both the prior and the posterior is multiplied by 2, so that their ratio stays the same. Second, the posterior for δ is not quite symmetric around zero, and assigns slightly more mass to values that are inconsistent with H2. This will slightly increase the support for H0 over H2. These two considerations lead us to expect that the evidence in favor of H0 over H2 will be slightly larger than that of H0 over H1.
+
+
+```{r 9.5}
+### Geurts data:
+# Normal Controls:         
+num.errors <- c(15,10, 61,11, 60, 44, 63, 70, 57,11, 67, 21, 89,12, 63, 11, 96,10, 37,19, 44,18, 78, 27, 60,14)
+nc         <- c(89,74,128,87,128,121,128,128,128,78,128,106,128,83,128,100,128,73,128,86,128,86,128,100,128,79)
+kc         <- nc - num.errors
+nsc        <- length(kc)
+# ADHD:
+num.errors <- c(88, 50, 58,17, 40, 18,21, 50, 21, 69,19, 29,11, 76, 46, 36, 37, 72,27, 92,13, 39, 53, 31, 49, 
+                57,17,10,12,21, 39, 43, 49,17, 39,13, 68, 24, 21,27, 48, 54, 41, 75, 38, 76,21, 41, 61,24, 28,21)
+na         <- c(128,128,128,86,128,117,89,128,110,128,93,107,87,128,128,113,128,128,98,128,93,116,128,116,128,
+               128,93,86,86,96,128,128,128,86,128,78,128,111,100,95,128,128,128,128,128,128,98,127,128,93,110,96)
+ka         <- na - num.errors
+nsa        <- length(ka)
+           
+data <- list("nc","kc","nsc","na","ka","nsa") # to be passed on to JAGS
+
+myinits <- list(
+  list(mu = 0, sigma = 1, delta = .3),
+  list(mu = -.8, sigma = 2, delta = .5),
+  list(mu = .8, sigma = 1.5, delta = .7))
+
+parameters <- c("delta","deltaprior")
+
+cat('# Geurts, Order Restricted
+model{
+  for (i in 1:nsc){
+    kc[i] ~ dbin(thetac[i],nc[i])
+    thetac[i] <- phi(phic[i])
+    phic[i] ~ dnorm(muc,lambda)
+  }
+  for (j in 1:nsa){
+    ka[j] ~ dbin(thetaa[j],na[j])
+    thetaa[j] <- phi(phia[j])
+    phia[j] ~ dnorm(mua,lambda)
+  }
+  muc <- mu+alpha/2
+  mua <- mu-alpha/2
+  # Priors
+  mu ~ dnorm(0,1)
+  sigma ~ dunif(0,10)
+  alpha <- delta*sigma
+  lambda <- pow(sigma,-2)  
+  delta ~ dnorm(0,1)T(0,)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,1)
+}
+',file={f<-tempfile()})
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file =f,
+	 			n.chains=3, n.iter=100000, n.burnin=1000, n.thin=1, DIC=T)
+
+df <-data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta,
+                delta.prior=samples$BUGSoutput$sims.list$deltaprior)
+
+#============ BFs based on logspline fit ===========================
+fit.posterior <- logspline(df$delta.posterior, lbound=0)
+
+# 95% confidence interval:
+x0 <- qlogspline(0.025,fit.posterior)
+x1 <- qlogspline(0.975,fit.posterior)
+
+posterior     <- dlogspline(0, fit.posterior) # this gives the pdf at point delta = 0
+prior         <- 2*dnorm(0)                   # height of order--restricted prior at delta = 0
+BF01          <- posterior/prior
+
+df.m <- melt(df)
+
+ggplot(data=df.m,aes(x=value,linetype=variable))+
+  geom_density()+
+  geom_point(x=0,y=prior,size=3)+
+  geom_point(x=0,y=posterior,color='red',size=3)+
+  theme_bw()+
+  xlab('Delta')+
+  xlim(0,3)
+
+```
+
+Posterior over prior Bayes Factor is `r BF01`
+
+Prior over posterior Bayes Factor is `r 1/BF01`
+
+
+### Exercise 9.5.1 
+
+For the order-restricted comparison of H0 : δ = 0 versus H2 : δ > 0, what is the maximum support in favor of H0 that could possibly be obtained, given the present number of subjects, and given that the average rate of correct card sorts is 65%?
+
+
+### Exercise 9.5.2 
+
+What is the maximum support for the earlier unrestricted test of
+H0 :δ=0 versus H1 :δ̸=0?

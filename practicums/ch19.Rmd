@@ -1,0 +1,210 @@
+---
+title: "ch19"
+author: "mht"
+date: "November 20, 2014"
+output: html_document
+---
+
+# Chapter 19: Number Concept Development
+
+```{r}
+library(R2jags)
+library(gridExtra)
+library(reshape2)
+library(polspline)
+library(ggplot2)
+
+setwd("/Users/mht/Documents/learning/tfbt/Lee&Wagenmakers/Code/CaseStudies/NumberConcepts")
+
+cat('# Knower Level Model Applied to Give-N Data
+model{
+  # Data (aka Linking Function action)
+  for (i in 1:ns){
+    for (j in 1:gnq[i]){  
+      # Probability a z[i]-Knower Will Answer ga[i,j] to Question gq[i,j]
+      # is a Categorical Draw From Their Distribution over the 1:gn Toys
+      ga[i,j] ~ dcat(npiprime[z[i],gq[i,j],1:gn]) #Normalized pi_prime (posterior)
+    }
+    # Posterior Predictive
+    for (j in 1:gn){
+      predga[i,j] ~ dcat(npiprime[z[i],j,1:gn])
+    }
+  }
+  # Model, where the magic happens
+  for (i in 1:nz){ # children
+    for (j in 1:gn){ # questions
+      for (k in 1:gn){ # number in mind (1:15)
+
+        # Temporarily compute updated probs
+        piprimetmp[i,j,k,1] <- pi[k]
+        piprimetmp[i,j,k,2] <- 1/v*pi[k]
+        piprimetmp[i,j,k,3] <- v*pi[k]
+
+        # Will be 1 if Knower-Level (i.e, i-1) is Same or Greater than Answer
+        # should this be z[i]-1?
+        ind1[i,j,k] <- step((i-1)-k)
+
+        # Will be 1 for the Possible Answer that Matches the Question
+        ind2[i,j,k] <- equals(k,j)
+
+        # Will be 1 for 0-Knowers
+        ind3[i,j,k] <- equals(i,1)
+
+        # Will be 1 for HN-Knowers
+        ind4[i,j,k] <- equals(i,nz)
+        ind5[i,j,k] <- ind3[i,j,k]+ind4[i,j,k]*(2+ind2[i,j,k])
+                       + (1-ind4[i,j,k])*(1-ind3[i,j,k])
+                       * (ind1[i,j,k]+ind1[i,j,k]*ind2[i,j,k]+1)
+
+        piprime[i,j,k] <- piprimetmp[i,j,k,ind5[i,j,k]]
+        npiprime[i,j,k] <- piprime[i,j,k]/sum(piprime[i,j,1:gn]) # Why is this in the k loop?
+      } 
+    }
+  }
+  # Posterior Prediction For Knower Levels
+  for (i in 1:nz){
+    for (j in 1:gn){
+      predz[i,j] ~ dcat(npiprime[i,j,1:gn])
+    }
+  }      
+  # Base rate ~ Dir(1,...,1).
+  for (i in 1:gn){
+    pitmp[i] ~ dunif(0,1)
+    pi[i] <- pitmp[i]/sum(pitmp[1:gn]) #Again, why inside the loop?
+  }
+  predpi ~ dcat(pi[1:gn]) 
+  # Prior over Evidence parameter
+  v ~ dunif(1,1000)
+  # Prior over Knower level
+  for (i in 1:ns) {
+    z[i] ~ dcat(priorz[])
+  }
+  for (i in 1:nz){
+    priorz[i] <- 1/6
+  }      
+}  ',file={f<-tempfile()})
+
+g   = matrix(scan("Data.txt", sep=","), ncol=38, nrow=82, byrow=T)
+g   = g[,-c(22:38)]
+q   = matrix(scan("Data.txt", sep=","), ncol=21, nrow=82, byrow=T)
+age = scan("age.txt")
+Q   = apply(q>0,1,sum) #number of questions for each child
+S   = 82         # number of subjects
+Z   = 6  # number of latent classes
+N   = 15 # maximum number of toys
+
+data  = list("g", "q", "S", "Q", "Z", "N") # to be passed on to WinBUGS
+myinits =  list(
+  list(v = 10, z = floor(runif(S)*Z)+1, pitmp=rep(1/N, N)))  
+
+# parameters to be monitored:	
+parameters = c("pp","ppz","ppb","v","z")
+
+# The following command calls WinBUGS with specific options.
+# For a detailed description see Sturtz, Ligges, & Gelman (2005).
+samples = bugs(data, inits=myinits, parameters,
+	 			model.file ="NumberConcept_1.txt",
+	 			n.chains=1, n.iter=2000, n.burnin=1000, n.thin=1,
+	 			DIC=T, bugs.directory=bugsdir,
+	 			codaPkg=F, debug=T)
+
+```
+
+Combined Give-N, Fast Cards
+
+```{r, echo=FALSE}
+cat('
+# Knower Level Model Applied to Give-N and Fast-Cards Data
+model{
+  # Give-N Part
+  # Data
+  for (i in 1:ns){
+    for (j in 1:gnq[i]){  
+      ga[i,j] ~ dcat(npiprime[z[i],gq[i,j],1:gn])
+    }
+    # Posterior Predictive
+    for (j in 1:gn){
+      predga[i,j] ~ dcat(npiprime[z[i],j,1:gn])
+    }
+  }
+  # Model
+  for (i in 1:nz){
+    for (j in 1:gn){
+      for (k in 1:gn){
+        piprimetmp[i,j,k,1] <- pi[k]
+        piprimetmp[i,j,k,2] <- 1/gv*pi[k]
+        piprimetmp[i,j,k,3] <- gv*pi[k]
+        ind1[i,j,k] <- step((i-1)-k)
+        ind2[i,j,k] <- equals(k,j)
+        ind3[i,j,k] <- equals(i,1)
+        ind4[i,j,k] <- equals(i,nz)
+        ind5[i,j,k] <- ind3[i,j,k]+ind4[i,j,k]*(2+ind2[i,j,k])
+                       + (1-ind4[i,j,k])*(1-ind3[i,j,k])
+                       * (ind1[i,j,k]+ind1[i,j,k]*ind2[i,j,k]+1)
+        piprime[i,j,k] <- piprimetmp[i,j,k,ind5[i,j,k]]
+        npiprime[i,j,k] <- piprime[i,j,k]/sum(piprime[i,j,1:gn])
+      } 
+    }
+  }
+  # Fast-Cards Part
+  # Data
+  for (i in 1:ns){
+    for (j in 1:fnq[i]){  
+      fa[i,j] ~ dcat(fnpiprime[z[i],fq[i,j],1:fn])
+    }
+    # Posterior Predictive
+    for (j in 1:gn){
+      predfa[i,j] ~ dcat(fnpiprime[z[i],j,1:fn])
+    }
+  }
+  # Model
+  for (i in 1:nz){
+    for (j in 1:gn){
+      for (k in 1:fn){
+        fpiprimetmp[i,j,k,1] <- fpi[k]
+        fpiprimetmp[i,j,k,2] <- 1/fv*fpi[k]
+        fpiprimetmp[i,j,k,3] <- fv*fpi[k]
+        find1[i,j,k] <- step((i-1)-k)
+        find2[i,j,k] <- equals(k,j)
+        find3[i,j,k] <- equals(i,1)
+        find4[i,j,k] <- equals(i,nz)
+        find5[i,j,k] <- find3[i,j,k]+find4[i,j,k]*(2+find2[i,j,k])
+                        + (1-find4[i,j,k])*(1-find3[i,j,k])
+                        * (find1[i,j,k]+find1[i,j,k]*find2[i,j,k]+1)
+        fpiprime[i,j,k]  <- fpiprimetmp[i,j,k,find5[i,j,k]]
+        fnpiprime[i,j,k] <- fpiprime[i,j,k]/sum(fpiprime[i,j,1:fn])
+      } 
+    }
+  }
+  # Posterior Prediction For Knower Levels
+  for (i in 1:nz){
+    for (j in 1:gn){
+      predgaz[i,j] ~ dcat(npiprime[i,j,1:gn])
+      predfaz[i,j] ~ dcat(fnpiprime[i,j,1:fn])
+    }
+  }      
+  # Base rates
+  for (i in 1:fn){
+    fpitmp[i] ~ dunif(0,1)
+    fpi[i] <- fpitmp[i]/sum(fpitmp[1:fn])
+  }
+  for (i in 1:gn){
+    pitmp[i] ~ dunif(0,1)
+    pi[i] <- pitmp[i]/sum(pitmp[1:gn])
+  }
+  predpi  ~ dcat(pi[1:gn]) 
+  predfpi ~ dcat(fpi[1:fn]) 
+  # Priors   
+  gv ~ dunif(1,1000)
+  fv ~ dunif(1,1000)
+  for (i in 1:ns) {
+    z[i] ~ dcat(priorz[])
+  }
+  for (i in 1:nz){
+    priorz[i] <- 1/6
+  }      
+}  ',file={f<-tempfile()})
+
+```
+
+

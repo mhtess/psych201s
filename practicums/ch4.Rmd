@@ -1,0 +1,470 @@
+---
+title: "W&L ch4"
+author: "mht"
+date: "October 15, 2014"
+output: html_document
+---
+
+This chapter is concerned with inferring the parameters of a Gaussian distribution. 
+
+# 4.1 Inferring a mean and standard deviation
+
+```{r 4.1.1a}
+library(R2jags)
+library(gridExtra)
+library(reshape2)
+
+setwd("/Users/mht/Documents/learning/tfbt/Lee&Wagenmakers/Code/ParameterEstimation/Gaussian")
+
+# clears workspace:  
+rm(list=ls()) 
+
+x <- c(1.1, 1.9, 2.3, 1.8)
+n <- length(x)
+
+data <- list("x", "n") # to be passed on to JAGS
+myinits <- list(
+  list(mu = 0, sigma = 1))
+
+# parameters to be monitored:  
+parameters <- c("mu", "sigma")
+
+cat('# Inferring the Mean and Standard Deviation of a Gaussian
+model{
+  # Data Come From A Gaussian
+  for (i in 1:n){
+    x[i] ~ dnorm(mu,lambda)
+  }
+  # Priors
+  mu ~ dnorm(0,.001)
+  sigma ~ dunif(0,10)
+  lambda <- 1/pow(sigma,2)
+}',file={gaussn <- tempfile()})
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file=gaussn, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+# Now the values for the monitored parameters are in the "samples" object, 
+# ready for inspection.
+df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
+           sigma = samples$BUGSoutput$sims.list$sigma)
+
+blankPanel<-grid.rect(gp=gpar(col="white"))
+a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
+b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
+c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+
+  coord_flip()+scale_y_reverse()+xlim(0,3)
+
+#quartz("data")
+grid.arrange(a,c,b,blankPanel,ncol=2)
+
+```
+
+Same thing but with 3x as much data.
+
+```{r 4.1.1b}
+
+x <- c(1.1, 1.9, 2.3, 1.8, 1.1, 1.9, 2.3, 1.8, 1.1, 1.9, 2.3, 1.8)
+n <- length(x)
+
+data <- list("x", "n") # to be passed on to JAGS
+myinits <- list(
+  list(mu = 0, sigma = 1))
+
+parameters <- c("mu", "sigma")
+
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file=gaussn, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
+           sigma = samples$BUGSoutput$sims.list$sigma)
+
+blankPanel<-grid.rect(gp=gpar(col="white"))
+a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
+b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
+c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+
+  coord_flip()+scale_y_reverse()+xlim(0,3)
+
+#quartz("3x data")
+grid.arrange(a,c,b,blankPanel,ncol=2)
+
+```
+
+And now with uniform data
+
+```{r 4.1.1c}
+  
+x <- 1.5*runif(30)
+n <- length(x)
+
+data <- list("x", "n") # to be passed on to JAGS
+myinits <- list(
+  list(mu = 0, sigma = 1))
+
+parameters <- c("mu", "sigma")
+
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file=gaussn, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
+           sigma = samples$BUGSoutput$sims.list$sigma)
+
+blankPanel<-grid.rect(gp=gpar(col="white"))
+a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
+b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
+c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)+
+  coord_flip()+scale_y_reverse()
+
+#quartz("uniform random data")
+grid.arrange(a,c,b,blankPanel,ncol=2)
+
+```
+
+
+
+### 4.1.3
+
+Suppose you knew the standard deviation of the Gaussian was 1.0, but still wanted to infer the mean from data. This is a realistic question: For example, knowing the standard deviation might amount to knowing the noise associated with measuring some psychological trait using a test instrument. The xi values could then be repeated measures for the same person, and their mean the trait value you are trying to infer. Modify the WinBUGS script and Matlab or R code to do this. What does the revised graphical model look like?
+
+
+```{r 4.1.3}
+
+x <- c(1.1, 1.9, 2.3, 1.8)
+n <- length(x)
+
+data <- list("x", "n") # to be passed on to JAGS
+myinits <- list(
+  list(mu = 0))
+
+parameters <- c("mu")
+
+cat('# Inferring the Mean and Standard Deviation of a Gaussian
+model{
+  # Data Come From A Gaussian
+  for (i in 1:n){
+    x[i] ~ dnorm(mu,lambda)
+  }
+  # Priors
+  mu ~ dnorm(0,.001)
+  sigma <- 1
+  lambda <- 1/pow(sigma,2)
+}',file={gaussn.mean<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+       	 model.file=gaussn.mean, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
+
+#quartz("mean only")
+qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
+
+```
+
+### 4.1.4
+
+Suppose you knew the mean of the Gaussian was zero, but wanted to infer the standard deviation from data. This is also a realistic question: Suppose you know that the error associated with a measurement is unbiased, so its average or mean is zero, but you are unsure how much noise there is in the instrument. Inferring the standard deviation is then a sensible way to infer the noisiness of the instrument. Once again, modify the WinBUGS script and Matlab or R code to do this. Once again, what does the revised graphical model look like?
+
+```{r 4.1.4}
+
+x <- c(1.1, 1.9, 2.3, 1.8)
+n <- length(x)
+
+data <- list("x", "n") # to be passed on to JAGS
+myinits <- list(
+  list(sigma = 1))
+
+parameters <- c("sigma")
+
+cat('# Inferring the Mean and Standard Deviation of a Gaussian
+model{
+  # Data Come From A Gaussian
+  for (i in 1:n){
+    x[i] ~ dnorm(mu,lambda)
+  }
+  # Priors
+  mu <- 0
+  sigma ~ dunif(0,10)
+  lambda <- 1/pow(sigma,2)
+}',file={gaussn.var<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+       	 model.file=gaussn.var, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df<-data.frame(sigma = samples$BUGSoutput$sims.list$sigma)
+#quartz("sigma only")
+qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
+
+```
+
+
+### 4.2 The seven scientists
+
+Seven scientists with wildly-differing experimental skills all make a measurement of the same quantity. They get the answers x = {−27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056}. Intuitively, it seems clear that the first two scientists are pretty inept measurers, and that the true value of the quantity is probably just a bit below 10. The main problem is to find the posterior distribution over the measured quantity, telling us what we can infer from the measurement. A secondary problem is to infer something about the measurement skills of the seven scientists.
+
+
+```{r 4.2.1}
+x <- c(-27.020,3.570,8.191,9.898,9.603,9.945,10.056)
+n <- length(x)
+
+data <- list("x", "n")
+myinits <- list(
+  list(mu = 0, lambda = rep(1,n)))
+
+parameters <- c("mu", "sigma")
+
+cat('# The Seven Scientists
+model{
+  # Data Come From Gaussians With Common Mean But Different Precisions
+  for (i in 1:n){
+    x[i] ~ dnorm(mu,lambda[i])
+  }
+  # Priors
+  mu ~ dnorm(0,.001)
+  for (i in 1:n){
+    lambda[i] ~ dgamma(.001,.001)
+    sigma[i] <- 1/sqrt(lambda[i])  
+  }     
+}',file={seven.scientists<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file =seven.scientists, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigmas<-data.frame(samples$BUGSoutput$sims.list$sigma)
+df_mean<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
+
+
+a<-ggplot(melt(df_sigmas),aes(x=value))+
+  facet_wrap(~variable,scales='free')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('sigma')+
+  xlim(0, 50)
+
+b<-qplot(data=df_mean,mu,geom='histogram',binwidth=0.2)+theme_bw()
+
+#quartz("seven scientists")
+grid.arrange(a,b,ncol=2)
+```
+
+
+
+Exercise 4.2.2 Change the graphical model in Figure 4.2 to use a uniform prior over the standard deviations, as was done in Figure 4.1. Experiment with the effect the upper bound of this uniform prior has on inference.
+
+
+
+```{r 4.2.2}
+x <- c(-27.020,3.570,8.191,9.898,9.603,9.945,10.056)
+n <- length(x)
+
+data <- list("x", "n")
+myinits <- list(
+  list(mu = 0, sigma = rep(5,n)))
+
+parameters <- c("mu", "sigma")
+
+cat('# The Seven Scientists
+model{
+  # Data Come From Gaussians With Common Mean But Different Precisions
+  for (i in 1:n){
+    x[i] ~ dnorm(mu,lambda[i])
+  }
+  # Priors
+  mu ~ dnorm(0,.001)
+  for (i in 1:n){
+    sigma[i] ~ dunif(0,10) 
+    lambda[i] <- 1/pow(sigma[i],2)
+  }     
+}',file={seven.unif<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file=seven.unif, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigmas<-data.frame(samples$BUGSoutput$sims.list$sigma)
+df_mean<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
+
+
+a<-ggplot(melt(df_sigmas),aes(x=value))+
+  facet_wrap(~variable,scales='free')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('sigma')+
+  xlim(0, 50)
+
+b<-qplot(data=df_mean,mu,geom='histogram',binwidth=0.2)+theme_bw()
+
+#quartz("seven scientists, uniform prior over sigma")
+grid.arrange(a,b,ncol=2)
+```
+
+### 4.3 Repeated measures of IQ
+
+The data are the measures xij for the i = 1, . . . , n people and their j = 1, . . . , m repeated test scores.
+
+We assume that the differences in repeated test scores are distributed as Gaussian error terms with zero mean and unknown precision. The mean of the Gaussian of a person’s test scores corresponds to their latent true IQ. This will be different for each person. The standard deviation of the Gaussians corresponds to the accuracy of the testing instruments in measuring the one underlying IQ value. We assume this is the same for every person, since it is conceived as a property of the tests themselves.
+
+MH: Is this analogous to mixed-effects model with a subject-level random effect of intercept (and not slope)?
+
+Exercise 4.3.1 Use the posterior distribution for each person’s μi to estimate their IQ. What can we say about the precision of the IQ test?
+
+```{r 4.3.1}
+x <- matrix(c(90,95,100,105,110,115,150,155,160),nrow=3,ncol=3,byrow=T) 
+x
+
+n <- nrow(x) # number of people
+m <- ncol(x) # number of repeated measurements
+
+data <- list("x", "n", "m") # to be passed on to JAGS
+myinits <- list(
+  list(mu = rep(100,n), sigma = 1))
+
+# parameters to be monitored:  
+parameters <- c("mu", "sigma")
+
+cat('# Repeated Measures of IQ
+model{
+  # Data Come From Gaussians With Different Means But Common Precision
+  for (i in 1:n){
+    for (j in 1:m){
+      x[i,j] ~ dnorm(mu[i],lambda)
+    }
+  }
+  # Priors
+  sigma ~ dunif(0,100)
+  lambda <- 1/pow(sigma,2)     
+  for (i in 1:n){
+    mu[i] ~ dunif(0,300)
+  }
+}',file={iq<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+	 			 model.file =iq, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
+df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
+
+a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
+  xlim(0,100)
+b<-ggplot(melt(df_means),aes(x=value))+
+  facet_wrap(~variable,scales='fixed')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('mu')+
+  xlim(50,175)
+
+
+#quartz("repeated IQ")
+grid.arrange(a,b,nrow=2)
+```
+
+
+Exercise 4.3.2 Now, use a more realistic prior assumption for the μi means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. This corresponds to having a prior of mu[i] ∼ dnorm(100,.0044), instead of mu[i] ∼ dunif(0,300), because (1/15)^2 = 0.0044. Make this change in the WinBUGS script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
+
+```{r 4.3.2}
+
+cat('# Repeated Measures of IQ
+model{
+  # Data Come From Gaussians With Different Means But Common Precision
+  for (i in 1:n){
+    for (j in 1:m){
+      x[i,j] ~ dnorm(mu[i],lambda)
+    }
+  }
+  # Priors
+  sigma ~ dunif(0,100)
+  lambda <- 1/pow(sigma,2)     
+  for (i in 1:n){
+    mu[i] ~ dnorm(100,.0044)
+  }
+}',file={iq.realerprior<-tempfile()})
+
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file =iq.realerprior, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
+df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
+
+a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
+  xlim(0,100)
+b<-ggplot(melt(df_means),aes(x=value))+
+  facet_wrap(~variable,scales='fixed')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('mu')+
+  xlim(50,175)
+
+#quartz("repeated IQ with realistic prior")
+grid.arrange(a,b,nrow=2)
+```
+
+
+Exercise 4.3.3 Repeat both of the above stages (i.e., using both priors on μ_i) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
+
+```{r 4.3.3a}
+#previous data c(90,95,100,105,110,115,150,155,160)
+x <- matrix(c(94,95,96,109,110,111,154,155,156),nrow=3,ncol=3,byrow=T) 
+x
+
+n <- nrow(x) # number of people
+m <- ncol(x) # number of repeated measurements
+
+data <- list("x", "n", "m") # to be passed on to JAGS
+myinits <- list(
+  list(mu = rep(100,n), sigma = 1))
+
+# parameters to be monitored:  
+parameters <- c("mu", "sigma")
+
+samples <- jags(data, inits=myinits, parameters,
+   			 model.file =iq, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
+df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
+
+a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
+  xlim(0,100)
+b<-ggplot(melt(df_means),aes(x=value))+
+  facet_wrap(~variable,scales='fixed')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('mu')+
+  xlim(90,160)
+
+
+#quartz("repeated IQ, data 2")
+grid.arrange(a,b,nrow=2)
+```
+
+```{r 4.3.3b}
+samples <- jags(data, inits=myinits, parameters,
+     		 model.file =iq.realerprior, n.chains=1, n.iter=1000, 
+         n.burnin=1, n.thin=1, DIC=T)
+
+df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
+df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
+
+a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
+  xlim(0,100)
+b<-ggplot(melt(df_means),aes(x=value))+
+  facet_wrap(~variable,scales='fixed')+
+  geom_histogram(binwidth=1)+
+  theme_bw()+
+  xlab('mu')+
+  xlim(90,160)
+
+#quartz("repeated IQ with realistic prior, data 2")
+grid.arrange(a,b,nrow=2)
+```
+
+
+Answer is low variance?
