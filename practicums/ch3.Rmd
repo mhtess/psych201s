@@ -18,16 +18,16 @@ rm(list=ls())
 ```{r}
 model1 <- '
 // Unpack data
-var k = observed_data["k"]
-var n = observed_data["n"]
-// Inferring a Rate
+var k = observed_data["k"] // number of heads
+var n = observed_data["n"] // number of flips
+
 var myFirstModel = function() {
    var p = uniform( {a:0, b:1} )    // sample a coin weight from a uniform distribution
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
    }) 
-   return {p : p}
+   return {nextFlip: flip(p)}
 }
 '
 ```
@@ -45,8 +45,8 @@ wp <- webppl(
   data = observed_data,
   data_var = "observed_data",
   inference_opts = list(method="MCMC", samples = 10000, burn = 5000),
-  ggmcmc = TRUE,
   model_var = "myFirstModel",
+#  ggmcmc = TRUE,
   packages = c("./utils")
   )
 
@@ -71,9 +71,23 @@ summary(samples$BUGSoutput)
 
 chain <- 1
 samples$BUGSoutput$sims.array[1:15,chain,]# array: element, chain, column (theta/deviance) 
-
-
 ```
+
+Writing a model as a string in R is convenient, but it is also convenient to see syntax-highlighting (like you get syntax highlighting for R). To get this, we can just write out model as a .wppl file in our folder. You can open the file in RMarkdown so you can view it and edit it here. In the bottom-right of the editor, you can change the language to JavaScript to get some helpful comments. (Note there are a few differences between JavaScript and WebPPL so all of the comments may not apply).
+
+
+```{r}
+wp <- webppl(
+  program_file = "webppl_models/myFirstModel.wppl",
+  packages = c("./utils"),
+  data = observed_data,
+  data_var = "observed_data",
+  inference_opts = list(method="MCMC", samples = 10000, burn = 5000),
+  model_var = "myFirstModel",
+  ggmcmc = TRUE
+  )
+```
+
 
 #3.1.1
 Based on visual inspection, my estimate that the probability is higher than 0.4 and lower than 0.6 is roughly 50%. I did this by drawing a line at 0.4 and 0.6 and estimating the area with respect to the entire area.
@@ -109,9 +123,15 @@ k <- 5 # number of heads
 n <- 10 # number of samples
 
 
-samples <- jags(data, inits=myinits, parameters,
-     		 model.file =f, n.chains=2, n.iter=200000, 
-         n.burnin=1, n.thin=1, DIC=T)
+samples <- jags(data, 
+                inits=myinits, 
+                parameters,
+     		 model.file =f, 
+     		 n.chains=2, 
+     		 n.iter=200000, 
+         n.burnin=1, 
+     		 n.thin=1, 
+     		 DIC=T)
 # Collect posterior samples across all chains:
 posterior <- data.frame(samples$BUGSoutput$sims.list$theta)
 names(posterior)<-c('theta')
