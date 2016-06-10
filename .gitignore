@@ -1,0 +1,6 @@
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Rproj
+_trash/
+course_design/

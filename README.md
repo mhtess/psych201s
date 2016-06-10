@@ -11,3 +11,7 @@ Summer 2016, Stanford University
 + devtools R library: in R: `install.packages('devtools')`
 
 Everything has been tested on Mac and Linux. If you are using Windows, contact the instructor.
+
+## Resources
+
++ [ggplot2 book Ed.2](https://www.dropbox.com/s/0lap7tr7zoryyjk/ggplot2-book.pdf?dl=0), with stuff on tidyr, dplyr
