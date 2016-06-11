@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<title>Psych 201s</title>
+
+<xmp theme="cerulean" style="display:none;">
+# Bayesian Statistics for Psychologists (Psych 201S)
+
+## Summer 2016
+
+### Overview
+
+Learning statistics is like learning pottery. With pottery, you can learn how to make different shapes (e.g. a bowl, a vase, a spoon) without understanding general principles. The other way is to learn the basic strokes of forming pottery (e.g. how to mold a curved surface, a flat surface, long pointy things). In this course, we are going to learn the basic strokes of statistics, and compose those strokes to make shapes you've seen before (e.g. a t-test), some shapes you've probably never seen before, and develop ideas how you would make new shapes if you needed to. We won't learn *what tests apply to what data types* but instead foster the ability to reason through data analysis.
+We will do this through the lens of Bayesian statistics, though the basic ideas will aid your understanding of classical (frequentist) statistics as well.
+
+Bayesian data analysis is a general purpose data analysis approach for making explicit hypotheses about where the data came from (e.g. the hypothesis that data from 2 experimental conditions came from two different distributions). In this course, we will explore and learn how to use Bayesian data analytic tools for analyzing data from psychology experiments. The course will focus on the practicalities of running Bayesian analyses, of describing analyses for purposes of publication, and of making inferences about data and design decisions for subsequent experiments. This course is ideal for graduate or advanced-undergraduate students in Psychology, Linguistics, and related fields, who conduct experiments on human behavior; appropriate for students with limited statistical background but who actively think about the connection between experimental data and scientific hypotheses.
+
+This course is designed to engage with empirical data. Though we will often engage with example data sets from the textbook, the final project will have you look at some of your own data afresh through the Bayesian lens. If you have not run an experiment before or do not have your own data, come talk to me and I will set you up with a data set.
+
++ Instructor: Michael Tessler (`mtessler` at stanford dot edu)
++ TA: Robert Hawkins (`rxdh` at stanford dot edu)
++ Meeting time: Mon, Wed 1:30 - 3:20
++ Meeting place: 200-219 (History Corner)
++ Office hours (MHT):
++ Office hours (RXDH): 
++ Textbook: *Bayesian Cognitive Modeling: A Practice Course*, Lee & Wagenmakers (2014) [below, LW]. [Available online](http://ebooks.cambridge.org/ebook.jsf?bid=CBO9781139087759) through Cambridge University Press, via Stanford. We will also read some excerpts from *Introduction to Applied Bayesian Statistics and Estimation for Social Scientists* by Scott M. Lynch (2007) [below, Lynch].
+
+I encourage students to use Piazza for questions that are readily articulable. Piazza is a forum for questions & answers, and answers may be posed by both students and the instructor. I strongly encourage students to answer questions, and I will verify the solutions.
+
+[Piazza signup](http://piazza.com/stanford/summer2016/psych201s/)
+
+### Learning goals. 
+
+
+By the end of the course, students will be able to:
+
+
+0. Feel comfortable with statistics, both with the analysis you already do and with understanding analyses in general
+1. Build Bayesian statistical models for simple and complex problems in your data using a probabilisitic programming language (e.g. BUGS/[JAGS](http://mcmc-jags.sourceforge.net), [STAN](http://mc-stan.org), [WebPPL](http://webppl.org))
+2. Interpret the various components of such a model in terms of your scientific hypotheses
+3. Relate the output of this model (spec. the posterior distribution) to more familiar, statistical tests (e.g. t-test, linear model) you may run 
+4. Defend a particular model specification (priors, likelihood) in a way that other psychologists will understand
+5. Explain (3)-(5) in the context of a manuscript (ideally, a manuscript you are currently working on)
+
+
+### Class structure.
+
+Our class meets for 1h50m twice a week. The class will be divided into 2 x 50m chunks, with a 10 minute break in between. During the first 50 minutes, I will lecture and/or the group will discuss the relevant topics of the day. During the second 50 minutes, you will engage with the practicalities of Bayesian analyses. This will include practical coding exercises and writing exercises. Most of this will be done with another student (pair work).
+
+
+### Final project.
+
+The goal of this course is to make you more comfortable with the basic strokes of statistics. To that end, you will apply the Bayesian statistical approach outlined in the first few weeks of class to your own experimental data. You will be asked to justify your choice of model specification (or, introduce a set of alternative specifications corresponding to alternative hypotheses), possibly by drawing analogies to some of the types of models we've seen in the course. Tell us about your experiment, the task, the form of the data, your hypotheses, and what assumptions are in your model. Describe the output in a way that directly relates to your hypotheses.
+
+You will tell the class about your project and analysis in a lightning talk (~ 5 min + Q&A) on 8/3. You will also write this up in an "analysis section" that could be included in a manuscript you plan to write up for your project (i.e., for peer reviewed publication; you do not need to write up a manuscript for this class). Be sure to take whatever feedback you may get during your lightning talk and incorporate it into your write-up.
+
+### Course grade.
+
++ 25% in-class practicum participation 
++ 25% discussion participation (in class and/or piazza)
++ 25% final project: lightning talk (due 8/3, in class)
++ 25% final project: "Analysis and results section" (due 8/8, by 5pm)
+
+
+### Day by day.
+
+Disclaimer: Schedule and readings subject to revision.
+
+| Week 	| Date 	| Meta-topic 	| Topic 	| Readings / Home assignment 	|
+|------	|------	|------------	|-------	|----------------------------	|
+| 1    	| 6/20 	|Philosophy, probability, basic strokes| Course overview, history of statistics| <ul><li>[Download JASP](https://jasp-stats.org/download/)</li><li>Clone [git repo of course materials](https://github.com/mhtess/psych201s)</li><li>Watch tutorial on [Bayesian Binomial Test](https://www.youtube.com/watch?v=rchMvOGOW1k) and apply it to `data/bbt.csv`</li><li>Lindley (1993). [The Analysis of Experimental Data: The Appreciation of Tea and Wine.](http://www2.isye.gatech.edu/~brani/isyebayes/bank/lindleybayeslady.pdf)</li><li>LW Ch. 1: Basics of Bayesian analysis</li></ul> |
+|      	| 6/22 	|            	|Probability distributions, generative models using JAGS| <ul><li>Lynch  pages 9-19</li><li>Wagenmakers, Morey, Lee (in press). [Bayesian benefits for the pragmatic researcher.](https://osf.io/3tdh9/) *Current directions in Psychological Science*</li><li>LW Ch. 2: Getting started with WinBugs</li></ul> |
+| 2    	| 6/27 	|More basic strokes (estimation)| Forced-choice data (binomials)|<ul><li>LW Ch. 3: Inferences with Binomials</li><li>Hoekstra, Morey, Rouder, Wagenmakers (2014). [Robust misinterpretation of confidence intervals.](http://www.ejwagenmakers.com/inpress/HoekstraEtAlPBR.pdf) *Psychonomic Bulletin & Review*</li></ul>|
+|      	| 6/29 	|            	| Continuous data (normals) | <ul><li>Lynch pages 25-33</li><li> LW Ch. 4: Inferences with Gaussians</li></ul>|
+| 3    	| 7/4  	|Some new shapes (latent-mixture)| ---NO CLASS--- |-----Independence day----|
+|      	| 7/6  	|            	| Individual differences, malingering | <ul><li>LW Ch. 6: Latent Mixture Models</li></ul>|
+| 4    	| 7/11 	| Hypothesis testing is model comparison| |<ul><li>LW Ch. 7: Bayesian model comparison</li><li>LW Ch. 8: Comparing Gaussian means</li></ul>|
+|      	| 7/13 	|            	|       	|<ul><li>LW Ch. 9: Comparing binomial rates</li><li>Wetzels et al. (2011) [Statistical Evidence in Experimental Psychology](http://www.ejwagenmakers.com/2011/WetzelsEtAl2011_855.pdf). *Perspectives on Psychological Science*</li></ul>|
+| 5    	| 7/18 	| There be dragons |"Bayesian frequentism" (t-tests, lm) |<ul><li>Something on the bayesian t-test</li><li>Wagenmakers et al. (2015). [A power fallacy.](http://www.ejwagenmakers.com/2015/WagenmakersEtAlAPowerFallacy2015.pdf)</li></ul>|
+|      	| 7/20 	|            	|Feeling the future (Bem, 2011)|<ul><li>Wagenmakers et al. (2011) *Comment on Bem (2011)*)</li><li>Bem et al. (2011). *Reply to comment*</li><li>Wagenmakers et al. (2011) *Comment on reply to comment*</li></ul>|
+| 6    	| 7/25  	| |More ESP and catch-up |<ul><li>LW Ch. 13</li></ul> |
+|      	| 7/27 	|            	|       	|<ul><li>TBD</li></ul>|
+| 7    	| 8/1 	|Catch-up and a fun application|TBD: Tentatively, Number Concept Development (other options: Memory, SDT, Psychophysics)|<ul><li>LW Ch. 19</li></ul>|
+|      	| 8/3  	|            	|Class presentations (bring your bayes to school day)||
+| 8    	| 8/8  	|Closing thoughts |       	|<ul><li>Scheibehenne, Jamil, Wagenmakers (in press). [Bayesian evidence synthesis can reconcile seemingly inconsistent results: The case of hotel towel reuse.](https://osf.io/nptv8/) *Psychological Science*</li></ul>|
+|      	| 8/10 	|            	|---NO CLASS--- | ---CogSci conference---|
+
+
+
+<!--
+### To address learning goals.
+
+0. Students should be able to match various psychological response formats (2AFC, sliders, likert scale, RT) to appropriate distributions
+1. Articulate hypotheses in terms of distributions and uncertainty
+2. This could start with: What is the prior? Likelihood? Posterior? What can you learn about this problem from them? ... Later, explain the components of the model (student identifies )
+
+Strengthen statistical intuitions: Identify probability distributions appropriate for different problems-->
+</xmp>
+
+<script src="http://strapdownjs.com/v/0.2/strapdown.js"></script>
+
+
+</html>
