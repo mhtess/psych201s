@@ -26,7 +26,7 @@ var model = function() {
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
-   }) 
+   })
    return {p: p}
 }
 '
@@ -38,7 +38,7 @@ runModel = function(model, data, numSamples = 10000) {
   # The following command calls WebPPL with specific options.
   wp <- webppl(
     program_code = model,
-    data = observed_data,
+    data = data,
     data_var = "observed_data",
     inference_opts = list(method="MCMC", samples = numSamples, burn = numSamples/10),
     ggmcmc = TRUE,
