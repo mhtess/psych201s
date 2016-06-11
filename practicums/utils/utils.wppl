@@ -1,15 +1,11 @@
-var forloop = function(lst, fn){
-    return map(fn, lst)
-};
+var exp = function(x){ return Math.exp(x); };
 
-var exp = function(x){ return Math.exp(x) };
-
-var observe = function(args) {
+var observeIID = function(args) {
     var scr = _.isArray(args.data) ?
             sum( map( function(d) { return args.link.score(d) }, args.data) ) :
-           args.link.score(args.data)
-    factor(scr)
-}
+           args.link.score(args.data);
+    factor(scr);
+};
 
 var foreach = function(lst, fn) {
     var foreach_ = function(i) {
@@ -23,8 +19,11 @@ var foreach = function(lst, fn) {
 
 var marginalize = function(myERP, label){
     Infer({method: "enumerate"}, function(){
-        var x = sample(myERP)
+        var x = sample(myERP);
         return x[label]
-    })
+    });
 };
 
+var probability = function(x, Dist) {
+    return exp(Dist.score(x));
+}

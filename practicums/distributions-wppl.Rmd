@@ -7,6 +7,7 @@ output: html_document
 
 A fundamental concept in probability and statistics is that of a probability distribution.
 There are different "families" of distributions, corresponding to different "random processes". 
+A full list of distributions in WebPPL can be found [here](http://webppl.readthedocs.io/en/master/distributions.html)
 
 We'll consider a few here. 
 We'll explore the distributions using WebPPL.
@@ -16,38 +17,51 @@ We'll explore the distributions using WebPPL.
 The simplest probability distribution results from the random process of flipping a coin.
 It is called a Bernoulli distribution (some people just call it a flip).
 
-In WebPPL, you can access the flip of a single coin using the function `bernoulli`
-```{r flip}
-library(rwebppl)
-webppl("bernoulli( { p : 0.5 } )")
-```
+In WebPPL, you can access the Bernoulli distribution using the call `Bernoulli`
 
-Using RWebPPL, we will be writing the WebPPL model as a string `"flip({p:0.5})"`.
-`flip` takes a single parameter `p` inside of a parameter object `{p:0.5}` (Note: This is the exactly the idea of a dictionary from Python, or a JSON object from JavaScript).
-
-The function call is appreciably slower than `rbinom` because we are calling out to language WebPPL. 
-This call is a fixed-cost, however, and will be worth it once we start considering more interesting cases than just a single coin flip.
-
-Here, we've collected one sample. If we collect a bunch of samples, it would start to approximate the true distribution.
-
-In WebPPL, distributions can be accessed directly. They are denoted by their proper names with capital letters. A full list of distributions can be found [here](http://webppl.readthedocs.io/en/master/distributions.html)
-
-What happens if we make the same sort of call on the distribution `Bernoulli`?
 ```{r Bernoulli}
-webppl("Bernoulli( { p: 0.5 } )")
+library(rwebppl)
+webppl("Bernoulli({ p: 0.5 })")
 ```
+Using RWebPPL, we will be writing the WebPPL model as a string `"flip({p:0.5})"`.
+The `Bernoulli` distribution takes a single parameter `p` inside of an object `{p:0.5}` 
+(Technical note: This is the exactly the idea of a dictionary from Python, or a JSON object from JavaScript).
 
-We get out a table of probabilities. Each possible outcome of the random process (here, a coin flip) is an element of the **support**. Associated with each element of a support is the probability of that outcome. Note, unlike `bernoulli` (which can return different values each time you call it), `Bernoulli` is deterministic: It is a reflection of the true distribution. 
+What happens when we call `Bernoulli`? (Note: the capital letter is important).
+
+We get out a table of probabilities. 
+Each possible outcome of the random process (here, a coin flip) is an element of the **support**. 
+Associated with each element of a support is the probability of that outcome. 
 
 Let's visualize this.
 
 ```{r Bernoulli.viz}
-webppl("Bernoulli( { p: 0.5 } )") %>%
-  ggplot(., aes(x = "Bernoulli" , fill = support, y = prob ))+
+d <- webppl("Bernoulli( { p: 0.5 } )")
+
+ggplot(d, aes(x = "Bernoulli" , fill = support, y = prob ))+
   geom_bar(stat='identity', width = 0.5)
 ```
 
 Try changing around p. What happens? If TRUE / FALSE are two responses in a 2AfC, what does p represent?
+
+Distributions in WebPPL can be sampled from. That is, you can flip the coin.
+
+
+```{r flip}
+webppl("sample( Bernoulli({ p: 0.5 }) )")
+```
+
+Note, unlike `Bernoulli` (which can returns the same thing each time you call it), 
+`sample(Bernoulli(...))` is **stochastic**: It is a random sample from the Bernoulli distribution.
+For shorthand, you can sample from a distribution using the lower-case name (e.g. `bernoulli({p:0.5})`). 
+We will use the longer `sample` notation for explicitness.
+
+You might notice this call is appreciably slower than `rbinom` because we are calling out to language WebPPL. 
+This is a fixed-cost, however, and will be worth it once we start considering more interesting cases than just a single coin flip.
+
+Here, we've collected one sample. If we collected a bunch of samples, it would start to approximate the true distribution.
+
+
 
 
 # Binomial distribution
@@ -57,7 +71,7 @@ What about if we wanted to flip the coin multiple times? (or, equivalently, what
 If we don't don't care about the order of the flips (or, the identities of our participants), then the data is distributed according to what's called the Binomial distribution.
 
 ```{r binomial.sample}
-webppl("binomial( {n:3, p:0.5 } )")
+webppl("sample( Binomial({n:3, p:0.5 }) )")
 ```
 
 `binomial` takes in parameters `n` and `p`, bundled together in the same object structure we saw above. `p` is the weight of the coin; same as in `bernoulli`. `n` is the number of times you flip it (or, the number of coins you flip).
@@ -91,16 +105,25 @@ Often times, we don't have the true distribution to visualize. In these cases, w
 
 ```{r sample.repeat}
 webppl("
-  var sampleLikert = function ( ) { return binomial( {n:6, p:0.8} ) + 1 }
+  var sampleLikert = function ( ) { return sample( Binomial({n:6, p:0.8}) ) + 1 }
   repeat(10, sampleLikert)
 ")
 ```
 
-Now inside of our string `"..."`, we've actually written a whole program! This program has 2 lines. On the first line, we have made a new variable called `sampleLikert`. `sampleLikert` is a function (you can tell because it says `= function`). The empty parentheses `( )` is where the **arguments** of the function would normally go, but in this case, we've made a function that doesn't take any arguments. Inside of the curly-braces `{}` is what the function does. Here, what it does is sample from a `binomial` distribution and adds 1 to it. 
+Now inside of our string `"..."`, we've actually written a whole program! 
+This program has 2 lines. 
+On the first line, we have made a new variable called `sampleLikert`. 
+`sampleLikert` is a function (you can tell because it says `= function`). 
+The empty parentheses `( )` is where the **arguments** of the function would normally go, but in this case, we've made a function that doesn't take any arguments. 
+Inside of the curly-braces `{}` is what the function does. 
+Here, what it does is `sample` from a `Binomial` distribution and adds 1 to it. 
+This procedure is called **function abstraction**. 
+We've taken a process that we want the computer to do (sample from a binomial), and packaged it up into a function, which can later be called.
+This is a basic idea in **functional programming**.
 
 In the next line, we are repeating `sampleLikert` 10 times.
 
-Notice that we can't call `repeat` on `binomial( {n:6, p:0.8} )`. The reason is that `binomial( {n:6, p:0.8} )` is not a function (it is a *call* to a function), and `repeat` wants to repeat **a function**. So what we did here was make a function called `sampleLikert`. (FYI: We could have called it anything we wanted to.)
+Notice that we can't call `repeat` on `sample(Binomial( {n:6, p:0.8} ) )`. The reason is that `sample(Binomial({n:6, p:0.8}))` is not a function (it is a *call* to a function), and `repeat` wants to repeat **a function**. So what we did here was make a function called `sampleLikert`. (FYI: We could have called it anything we wanted to.)
 
 Technically, we didn't have to make a new function and give it a name. We could have passed `function ( ) ... ` directly into repeat.
 
@@ -110,13 +133,15 @@ Let's write it that way, and capture the output and visualize it. We'll try it w
 
 ```{r sample.repeat.2}
 x <- webppl("
-  repeat(1000, function () { return binomial( {n:6, p:0.8} ) + 1 } )
+  repeat(1000, function () { return sample(Binomial( {n:6, p:0.8} )) + 1 } )
 ")
 print(x)
 qplot(x)
 ```
 
 ## Discrete / Categorical / Multinomial distribution
+
+
 
 # Continuous distributions
 
@@ -143,29 +168,36 @@ In this situation, WebPPL doesn't give us a pretty probability table. Why not?
 The answer has to do with the **support** of the Gaussian distribution. Whereas before, we had a *finite* support; the support here is all numbers.. it is *infinite*. That is, every number has some probability under a Gaussian distribution (it may be a very small probability).
 We can't print out a probability table because the table is infinitely long. 
 
-You may think this is a nit-picky detail, and that we could make some discretization or "binning" to show the distribution. You are right, we could do that. That would involve looking up the probability for different values. In WebPPL, there is a property of a distribution called `score`, which gives you that probability. (Actually, it gives you the log-probability.). To get out the probability, we're going to use the function: `exp`, which comes in a package that we're going to use throught this course called "bda".
+You may think this is a nit-picky detail, and that we could make some discretization or "binning" to show the distribution. You are right, we could do that. 
+That would involve looking up the probability for different values. 
+In WebPPL, Distributions come with this ability. We're going to use the function `probability` to look up the probability of a number under a `Gaussian` distribution.
+This function is not in the basic WebPPL language, but is in a package we've made for your convenience called `utils`.
 
-```{r gauss.score}
+```{r gauss.prob}
 webppl("
   var x = 0
-  Gaussian( {mu: 0, sigma:1 } ).score(x)
-")
-
-webppl("
-  var x = 0
-  exp( Gaussian( {mu: 0, sigma:1 } ).score(x) )
+  probability(x, Gaussian({mu: 0, sigma:1 }))
 ", packages = c("./utils"))
 ```
 
-Let's do this for several x-values. We're going to use a function called `forloop`, which is like `repeat` except that it takes in actual values to be passed to the function. Because we are passing actual values, we want to make a function that takes in an argument (as opposed to repeat, where we made a function with no arguments).
+Let's do this for several x-values. 
+To do this, we're going to use another basic idea from functional programming.
+If we want to do the same procedure (i.e., apply the same function) many times to different input values, we can use a "higher-order" function called `map`.
+`map` takes in 2 arguments: a function, and a list of values to apply that function to.
+It returns to you a list of values after the function has been applied.
+
+Because we are passing actual values, we want to make a function that takes in an argument (as opposed to repeat, where we made a function with no arguments).
 
 ```{r gauss.discretized}
 discreteGaussian <- webppl("
-forloop(
-  [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
-  function (x) { return exp( Gaussian( {mu: 0, sigma:1 } ).score( x ) ) }
+var gaussianProbability = function(x) { return probability(x, Gaussian( {mu: 0, sigma:1 } )) }
+map(
+  gaussianProbability, // first argument is a function
+  [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5] // second argument is a list of values (each of these gets substituted for x in gaussianProbability)
 )
 ", packages = c("./utils"))
+
+print(gaussianProbability)
 
 data.frame(
   bins = c(-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5),
@@ -183,7 +215,7 @@ Now let's make a continuous distribution from samples.
 webppl("
 repeat(
   1000,
-  function () { return gaussian( {mu: 0, sigma:1 } ) }
+  function () { return sample( Gaussian( {mu: 0, sigma:1 } ) ) }
 )
 ", packages = c("./utils")) %>% 
   qplot(.)
