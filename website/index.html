@@ -7,6 +7,8 @@
 
 ## Summer 2016
 
+[Link to class repo](https://github.com/mhtess/psych201s)
+
 ### Overview
 
 Learning statistics is like learning pottery. With pottery, you can learn how to make different shapes (e.g. a bowl, a vase, a spoon) without understanding general principles. The other way is to learn the basic strokes of forming pottery (e.g. how to mold a curved surface, a flat surface, long pointy things). In this course, we are going to learn the basic strokes of statistics, and compose those strokes to make shapes you've seen before (e.g. a t-test), some shapes you've probably never seen before, and develop ideas how you would make new shapes if you needed to. We won't learn *what tests apply to what data types* but instead foster the ability to reason through data analysis.
@@ -16,11 +18,11 @@ Bayesian data analysis is a general purpose data analysis approach for making ex
 
 This course is designed to engage with empirical data. Though we will often engage with example data sets from the textbook, the final project will have you look at some of your own data afresh through the Bayesian lens. If you have not run an experiment before or do not have your own data, come talk to me and I will set you up with a data set.
 
-+ Instructor: Michael Tessler (`mtessler` at stanford dot edu)
++ Instructor: Michael Henry (MH) Tessler (`mtessler` at stanford dot edu)
 + TA: Robert Hawkins (`rxdh` at stanford dot edu)
 + Meeting time: Mon, Wed 1:30 - 3:20
 + Meeting place: 200-219 (History Corner)
-+ Office hours (MHT):
++ Office hours (MHT): [A la carte](https://mht.youcanbook.me)
 + Office hours (RXDH): 
 + Textbook: *Bayesian Cognitive Modeling: A Practice Course*, Lee & Wagenmakers (2014) [below, LW]. [Available online](http://ebooks.cambridge.org/ebook.jsf?bid=CBO9781139087759) through Cambridge University Press, via Stanford. We will also read some excerpts from *Introduction to Applied Bayesian Statistics and Estimation for Social Scientists* by Scott M. Lynch (2007) [below, Lynch].
 
@@ -35,7 +37,7 @@ By the end of the course, students will be able to:
 
 
 0. Feel comfortable with statistics, both with the analysis you already do and with understanding analyses in general
-1. Build Bayesian statistical models for simple and complex problems in your data using a probabilisitic programming language (e.g. BUGS/[JAGS](http://mcmc-jags.sourceforge.net), [STAN](http://mc-stan.org), [WebPPL](http://webppl.org))
+1. Build Bayesian statistical models for simple and complex problems in your data using a probabilisitic programming language (e.g. [WebPPL](http://webppl.org), BUGS/[JAGS](http://mcmc-jags.sourceforge.net), [STAN](http://mc-stan.org))
 2. Interpret the various components of such a model in terms of your scientific hypotheses
 3. Relate the output of this model (spec. the posterior distribution) to more familiar, statistical tests (e.g. t-test, linear model) you may run 
 4. Defend a particular model specification (priors, likelihood) in a way that other psychologists will understand
@@ -67,11 +69,11 @@ Disclaimer: Schedule and readings subject to revision.
 
 | Week 	| Date 	| Meta-topic 	| Topic 	| Readings / Home assignment 	|
 |------	|------	|------------	|-------	|----------------------------	|
-| 1    	| 6/20 	|Philosophy, probability, basic strokes| Course overview, history of statistics| <ul><li>[Download JASP](https://jasp-stats.org/download/)</li><li>Clone [git repo of course materials](https://github.com/mhtess/psych201s)</li><li>Watch tutorial on [Bayesian Binomial Test](https://www.youtube.com/watch?v=rchMvOGOW1k) and apply it to `data/bbt.csv`</li><li>Lindley (1993). [The Analysis of Experimental Data: The Appreciation of Tea and Wine.](http://www2.isye.gatech.edu/~brani/isyebayes/bank/lindleybayeslady.pdf)</li><li>LW Ch. 1: Basics of Bayesian analysis</li></ul> |
-|      	| 6/22 	|            	|Probability distributions, generative models using JAGS| <ul><li>Lynch  pages 9-19</li><li>Wagenmakers, Morey, Lee (in press). [Bayesian benefits for the pragmatic researcher.](https://osf.io/3tdh9/) *Current directions in Psychological Science*</li><li>LW Ch. 2: Getting started with WinBugs</li></ul> |
-| 2    	| 6/27 	|More basic strokes (estimation)| Forced-choice data (binomials)|<ul><li>LW Ch. 3: Inferences with Binomials</li><li>Hoekstra, Morey, Rouder, Wagenmakers (2014). [Robust misinterpretation of confidence intervals.](http://www.ejwagenmakers.com/inpress/HoekstraEtAlPBR.pdf) *Psychonomic Bulletin & Review*</li></ul>|
+| 1    	| 6/20 	|Philosophy, probability, basic strokes| Course overview, what is probability?| <ul><li>[Download JASP](https://jasp-stats.org/download/)</li><li>Clone [git repo of course materials](https://github.com/mhtess/psych201s)</li><li>Watch tutorial on [Bayesian Binomial Test](https://www.youtube.com/watch?v=rchMvOGOW1k) and apply it to `data/bbt.csv`</li><li>Lindley (1993). [The Analysis of Experimental Data: The Appreciation of Tea and Wine.](http://www2.isye.gatech.edu/~brani/isyebayes/bank/lindleybayeslady.pdf)</li></ul> |
+|      	| 6/22 	|            	|Probability distributions and basic functional programming using WebPPL| <ul><li>Lynch  pages 9-19</li><li>Wagenmakers, Morey, Lee (in press). [Bayesian benefits for the pragmatic researcher.](https://osf.io/3tdh9/) *Current directions in Psychological Science*</li><li>LW Ch. 1: Basics of Bayesian analysis</li></ul> |
+| 2    	| 6/27 	| Basic Strokes: Bayesian Updating| Forced-choice data (binomials)|<ul><li>LW Ch. 3: Inferences with Binomials</li><li>Hoekstra, Morey, Rouder, Wagenmakers (2014). [Robust misinterpretation of confidence intervals.](http://www.ejwagenmakers.com/inpress/HoekstraEtAlPBR.pdf) *Psychonomic Bulletin & Review*</li></ul>|
 |      	| 6/29 	|            	| Continuous data (normals) | <ul><li>Lynch pages 25-33</li><li> LW Ch. 4: Inferences with Gaussians</li></ul>|
-| 3    	| 7/4  	|Some new shapes (latent-mixture)| ---NO CLASS--- |-----Independence day----|
+| 3    	| 7/4  	|Some new shapes: Latent-mixtures | ---NO CLASS--- |-----Independence day----|
 |      	| 7/6  	|            	| Individual differences, malingering | <ul><li>LW Ch. 6: Latent Mixture Models</li></ul>|
 | 4    	| 7/11 	| Hypothesis testing is model comparison| |<ul><li>LW Ch. 7: Bayesian model comparison</li><li>LW Ch. 8: Comparing Gaussian means</li></ul>|
 |      	| 7/13 	|            	|       	|<ul><li>LW Ch. 9: Comparing binomial rates</li><li>Wetzels et al. (2011) [Statistical Evidence in Experimental Psychology](http://www.ejwagenmakers.com/2011/WetzelsEtAl2011_855.pdf). *Perspectives on Psychological Science*</li></ul>|
