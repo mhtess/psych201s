@@ -373,6 +373,8 @@ var model = function() {
 
 ### 3.5 Posterior Prediction
 
+** This example is also broken due to issue #20 in rwebppl **
+
 ```{r}
 commonRateModelWithPredictives <- '
 // Unpack data
@@ -431,7 +433,7 @@ var vals = _.range(1, nmax + 1)
 var model = function() {
   var n = categorical( {ps: probs, vs: vals} );
   var p = beta({a: 1, b: 1})
-  observeIID({
+  observe({
     data : k,           // Observed k number of Heads
     link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
   })
