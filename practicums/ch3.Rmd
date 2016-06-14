@@ -5,15 +5,100 @@ date: "October 5, 2014"
 output: html_document
 ---
 
-### 3.1 Inferring a rate
 
 ```{r setup}
-setwd("~/Repos/psych201s/practicums/")
+#setwd("~/Repos/psych201s/practicums/")
 library(rwebppl)
-library(ggmcmc)
-#library(gridExtra)
 rm(list=ls())
 ```
+
+### 3.0 Warm up
+
+We saw at the end of the last tutorial (bayes-rule) that we can write down a model in WebPPL like this.
+
+```{r}
+myPosterior <- "
+var model = function(){
+  var p = sample(Uniform( {a:0, b:1} )) // prior on coin weights
+  observe(
+  { data : 15,   // observed data: numbers of heads
+    link : Binomial( {n:20, p: p} ) } // linking function is a Binomial 
+  )
+  return p
+}
+"
+
+posterior <- webppl(
+  program_code = myPosterior,
+  model_var = "model",
+  inference_opts = list(method = "rejection", samples = 10000),
+  output_format = "samples",
+  packages = c("./utils")
+)
+```
+
+Sometimes, we will want to try out different numbers in our models (e.g., what if we observed 16 heads instead of 15 heads?), and it would be a pain to copy and paste the model everytime we wanted to try different numbers. Fortunately, RWebPPL allows us to pass data from R to WebPPL.
+
+```{r}
+modelWithNoData <- '
+// data is currently passed as a list
+// when there is just one data point, grab the 0th element of the list
+var number_heads = data_from_R["number_heads"][0]
+var number_flips = data_from_R["number_flips"][0]
+
+var model = function(){
+  var p = sample(Uniform( {a:0, b:1} )) // prior on coin weights
+  observe(
+  { data : number_heads,   // observed data: numbers of heads
+    link : Binomial( {n:number_flips, p: p} ) } // linking function is a Binomial 
+  )
+  return p
+}
+'
+
+data_to_webppl <- list(number_heads = 15, number_flips = 20)
+
+posterior <- webppl(
+  program_code = modelWithNoData,
+  model_var = "model",
+  data_var = "data_from_R",
+  data = data_to_webppl,
+  inference_opts = list(method = "rejection", samples = 10000),
+  output_format = "samples",
+  packages = c("./utils")
+)
+
+#head(posterior)
+```
+
+Note that `data_from_R` is not defined inside of the webppl program `modelWithNoData`. We are passing it to the webppl program via the `data` argument to `webppl(...)` (the data is in a list called `data_to_webppl`). We also need to tell webppl what to expect our data to be called inside of the program. This is done with the `data_var` argument.
+
+Since we will be running a lot of models with this basic format, we can abstract much of this code into a helper function.
+
+```{r}
+runModel = function(model, data_to_webppl, 
+                    numSamples = 10000, method = "rejection") {
+  # The following command calls WebPPL with specific options.
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", # we will always refer inside WebPPL to the data passed from R: "observed_data"
+    inference_opts = list(method = method, samples = numSamples),
+    model_var = "model", # we will always call our model to do inference over: "model"
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+
+
+data_to_webppl = list(number_heads = 15, number_flips = 20)
+rs <- runModel(modelWithNoData, data_to_webppl)
+
+```
+
+
+### 3.1 Inferring a rate
+
 
 ```{r}
 myFirstModel <- '
@@ -22,7 +107,7 @@ var k = observed_data["k"] // number of heads
 var n = observed_data["n"] // number of flips
 
 var model = function() {
-   var p = uniform( {a:0, b:1} )    // sample a coin weight from a uniform distribution
+   var p = uniform( {a:0, b:1} )    // sample from a uniform
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
@@ -32,26 +117,15 @@ var model = function() {
 '
 # k = number of heads
 # n = number of coin flips
-
-runModel = function(model, data, numSamples = 10000, method = "MCMC") {
-  # The following command calls WebPPL with specific options.
-  wp <- webppl(
-    program_code = model,
-    data = data,
-    data_var = "observed_data",
-    inference_opts = list(method=method, samples = numSamples, burn = numSamples/10),
-    ggmcmc = TRUE,
-    model_var = "model",
-    packages = c("./utils")
-    )
-}
 ```
 
-Writing a model as a string in R is convenient, but it is also convenient to see syntax-highlighting (like you get syntax highlighting for R). To get this, we can just write out model as a .wppl file in our folder. You can open the file in RMarkdown so you can view it and edit it here. In the bottom-right of the editor, you can change the language to JavaScript to get some helpful comments. (Note there are a few differences between JavaScript and WebPPL so all of the comments may not apply).
+Writing a model as a string in R is convenient, but it is also convenient to see syntax-highlighting (like you get syntax highlighting for R). To get this, we can just write out model as a .wppl file in our folder. You can open the file in RMarkdown so you can view it and edit it here. In the bottom-right of the editor, you can change the language to JavaScript to get some helpful comments on your syntax. (Note there are a few differences between JavaScript and WebPPL so not all of the comments may apply).
 
 ```{r}
-observed_data <- list(k = 5, n = 10) 
-runModel(myFirstModel, observed_data) %>%
+webppl(myFirstModel)
+
+
+runModel(myFirstModel, data_to_webppl) %>%
   ggs_histogram()
 ```
 
