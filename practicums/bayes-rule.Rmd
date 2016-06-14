@@ -46,8 +46,8 @@ It is a mapping from a coin weight to the number of heads.
 priorPredictive <- "
 var priorPredictive = function(){
   var p = sample(Uniform({a:0,b:1}))
-  var outcomes = sample(Binomial( {n:20, p: p} ))
-  return outcomes
+  var outcome = sample(Binomial( {n:20, p: p} ))
+  return outcome
 }
 repeat(10000, priorPredictive)
 "
@@ -60,4 +60,89 @@ That tells us that when we don't know the weight of the coin, any numbers of hea
 This distribution is called the *prior predictive* distribution, because it shows what data our model predicts, because it has learned anything from the data.
 Here we see that our hypothesis (i.e. our model) is not very specific.
 It can predict any data.
-(In your head, imagine what the prior predictive distribution looks like for the usual null hypothesis: that the coin weight is 0.5; later in this course, we will take about comparing models (e.g., the null model vs. this model) as the Bayesian way of doing hypothesis testing. But that is for later.)
+(In your head, imagine what the prior predictive distribution looks like for the usual null hypothesis: that the coin weight is 0.5; later in this course, we will talk about comparing models (e.g., the null model vs. this model) as the Bayesian way of doing hypothesis testing. But that is for later.)
+
+So now we're ready to integrate in our data.
+The generative way of doing this is to say: 
+
+1. Sample a coin weight from our prior `sample(Uniform({a:0,b:1}))`
+2. Sample an outcome, given that coin weight `sample(Binomial( {n:20, p: p} ))`
+3a. If our outcome is the same as our data, keep the coin weight.
+3b. If the outcomes i different from our data, throw away the coin weight.
+
+In principle, any coin weight that's not 0 **could** give rise to our data (with a coin weighted 0.2, it could produce 15 / 20 heads, though it is unlikely).
+It turns out, if you repeat this procedure many times, then this is a true method to compute the posterior distribution.
+It is called [Rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling).
+
+So,
+4. Repeat many times
+
+How could we write this in WebPPL?
+
+Instead of always returning `p`, let's only return `p` when `outcome==15`. 
+That is, only return the coin weights that give rise to our data.
+We will do this with a simple `if` statement.
+In JavaScript / WebPPL, you can do a shorthand `if .. else` statement using `? .. : .. `.
+We will use the `?` syntax throughout the course.
+
+```{r}
+myPosterior <- "
+var sampleFromPosterior = function(){
+  var p = sample(Uniform({a:0,b:1}))
+  var outcome = sample(Binomial( {n:20, p: p} ))
+  return (outcome == 15) ? p : null 
+}
+repeat(100000, sampleFromPosterior)
+"
+posterior <-webppl(myPosterior) 
+
+posterior.Without.NAs <- posterior[!is.na(posterior)] # remove all the NA's
+
+qplot(posterior.Without.NAs)
+```
+
+Whoa, that's pretty interesting. 
+So the coin weights that are most likely to give rise to our data (15 out of 20 heads) are somewhere around 0.75.
+This is our first posterior distribution!
+It repesents the probabilies of the true population proportion of heads, given our data (and our prior beliefs, which here, were uniform across all possibilities). 
+
+We can ask things like: Between what 2 numbers are we 95% sure the true proportion lies? This is what's called a *credible interval*. 
+(Note that credible intervals carry a different interpretation than that assigned to traditional confidence intervals. Confidence intervals have a a substantially more complicated interpretation. We will discuss the differences more fully later in this course.)
+
+Now that we have the posterior distrbution, we can simply draw some lines in it: Let's look at the points at which 2.5% of the posterior probability mass is to the left and 2.5% of the probability mass is to the right, as well as the point at which 50% of the distribution is to the left and 50% is to the right (i.e., the median).
+
+```{r}
+quantile(posterior.Without.NAs, probs = c(0.025, 0.5, 0.975))
+```
+
+There are other questions you can ask about the posterior, some of which are highlighted in Wagenmakers, Morey, and Lee (2016) *Bayesian benefits for the pragmatic researcher*.
+
+To conclude this tutorial, I just want to tell you that doing this Bayesian inference trick (the 4 steps outlined above) is common to all of Bayesian analyses. It is the mechanism to use the data you have observed to go from prior beliefs to posterior beliefs.
+
+Because we do it so often, it would be useful if there just a simple `observe` function, that took in our data and our linking function (here, the `Binomial`), and returned to us the posterior distribution. 
+
+Indeed:
+
+```{r}
+myPosterior <- "
+var model = function(){
+  var p = sample(Uniform({a:0, b:1}))
+  observe({ data : 15,  link : Binomial( {n:20, p: p} ) })
+  return p
+}
+"
+
+posterior <-webppl(myPosterior,
+                   model_var = "model",
+                   inference_opts = list(method = "rejection", samples = 10000)) 
+```
+
+These models will do exactly the same thing. The only difference is that we've abstracted the `repeat(10000,..)` and the if `?` statement away.
+We also no longer are generating the `outcome` variable explicitly.
+In their place, we're calling a function called `observe`, which we're giving our `data: 15` and how we would generate the data (our linking funciton) `link: Binomial(...)`.
+We then ask the model to `return p`.
+
+We thus abstract the inference procedure, and using `inference_opts` in the `webppl` call to tell it to do Rejection Sampling with 10000 samples. We also tell it to Rejection sampling on `model`. 
+
+We will use the `observe` function going forward.
+
