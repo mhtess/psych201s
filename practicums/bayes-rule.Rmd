@@ -125,16 +125,20 @@ Indeed:
 
 ```{r}
 myPosterior <- "
-var model = function(){
+var ourModel = function(){
   var p = sample(Uniform({a:0, b:1}))
   observe({ data : 15,  link : Binomial( {n:20, p: p} ) })
   return p
 }
 "
 
-posterior <-webppl(myPosterior,
-                   model_var = "model",
-                   inference_opts = list(method = "rejection", samples = 10000)) 
+posterior <- webppl(
+  program_code = myPosterior,
+  model_var = "ourModel",
+  inference_opts = list(method = "rejection", samples = 10000),
+  packages = c("./utils"),
+  output_format = "samples"
+)
 ```
 
 These models will do exactly the same thing. The only difference is that we've abstracted the `repeat(10000,..)` and the if `?` statement away.
@@ -142,7 +146,16 @@ We also no longer are generating the `outcome` variable explicitly.
 In their place, we're calling a function called `observe`, which we're giving our `data: 15` and how we would generate the data (our linking funciton) `link: Binomial(...)`.
 We then ask the model to `return p`.
 
-We thus abstract the inference procedure, and using `inference_opts` in the `webppl` call to tell it to do Rejection Sampling with 10000 samples. We also tell it to Rejection sampling on `model`. 
+We thus abstract the inference procedure, and using `inference_opts` in the `webppl` call to tell it to do Rejection Sampling with 10000 samples. 
+We also need to tell it to do Rejection sampling on `ourModel`.
 
-We will use the `observe` function going forward.
+The `observe` function is a helper function that we've written; we are accessing it through the package `utils`, which is also included in the webppl program call. 
+Finally, we've told webppl we want the ouput format in `"samples"` (the default is for a probability table, which we saw in `distributions-wppl.Rmd`).
+Since we only have one column, we can pass it to `qplot` and hope that it does the right thing.
 
+```{r}
+head(posterior)
+
+
+qplot(posterior)
+```
