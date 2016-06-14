@@ -1,0 +1,63 @@
+---
+title: "bayes-rule"
+author: "mht"
+date: "June 14, 2016"
+output: html_document
+---
+
+In this tutorial, we're going to walk through how to get from a prior belief distribution to a posterior belief distribution through the process of observing data.
+
+```{r}
+library(rwebppl)
+```
+
+```{r}
+myPrior <- "
+var prior = function(){
+  var p = sample(Uniform({a:0,b:1}))
+  return p
+}
+repeat(10000, prior)
+"
+
+webppl(myPrior) %>% qplot()
+```
+
+
+Looks pretty uniform. 
+Now let's imagine these are our prior beliefs over the proportion of subjects who will behave prosocially in our experiment (for example, in the experimental condition).
+
+Now we observe 15 out of 20 subjects behave prosocially. 
+That is our data. 
+How do we go from a prior belief distribution to a posterior belief distribution? 
+That is, how do we *update* our beliefs in light of this evidence?
+
+Bayes' Theorem is the mathematically correct way of doing this. 
+But rather than do the math, can we program something to do it for us?
+
+We need to be a tiny bit more specific. 
+In particular, we need to have a *linking function* that maps from our beliefs to observed data. 
+(Here, we need something that goes from `p` -- a coin weight -- to some number of observed outcomes, i.e., the number of times the coin came up heads, or number of people who behaved prosocially.)
+
+The `Binomial` distribution is such a linking function.
+It is a mapping from a coin weight to the number of heads.
+
+```{r}
+priorPredictive <- "
+var priorPredictive = function(){
+  var p = sample(Uniform({a:0,b:1}))
+  var outcomes = sample(Binomial( {n:20, p: p} ))
+  return outcomes
+}
+repeat(10000, priorPredictive)
+"
+
+webppl(myPrior) %>% qplot(binwidth = 1)
+```
+
+We still have a uniform distribution, but note that this now over the numbers of heads, so the x-axis goes from 0 - 20. 
+That tells us that when we don't know the weight of the coin, any numbers of heads is equally likely (in addition to all values of the weight of the coin being equally likely).
+This distribution is called the *prior predictive* distribution, because it shows what data our model predicts, because it has learned anything from the data.
+Here we see that our hypothesis (i.e. our model) is not very specific.
+It can predict any data.
+(In your head, imagine what the prior predictive distribution looks like for the usual null hypothesis: that the coin weight is 0.5; later in this course, we will take about comparing models (e.g., the null model vs. this model) as the Bayesian way of doing hypothesis testing. But that is for later.)
