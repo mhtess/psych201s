@@ -7,12 +7,7 @@ output: html_document
 
 This chapter is concerned with inferring the parameters of a Gaussian distribution. 
 
-# 4.1 Inferring a mean and standard deviation
-
 ```{r 4.1.1a}
-library(R2jags)
-library(gridExtra)
-library(reshape2)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -21,290 +16,260 @@ setwd("~/Repos/webppl-bcm/")
 
 # clears workspace:  
 rm(list=ls()) 
-
-x <- c(1.1, 1.9, 2.3, 1.8)
-n <- length(x)
-
-data <- list("x", "n") # to be passed on to JAGS
-myinits <- list(
-  list(mu = 0, sigma = 1))
-
-# parameters to be monitored:  
-parameters <- c("mu", "sigma")
-
-cat('# Inferring the Mean and Standard Deviation of a Gaussian
-model{
-  # Data Come From A Gaussian
-  for (i in 1:n){
-    x[i] ~ dnorm(mu,lambda)
-  }
-  # Priors
-  mu ~ dnorm(0,.001)
-  sigma ~ dunif(0,10)
-  lambda <- 1/pow(sigma,2)
-}',file={gaussn <- tempfile()})
-
-# The following command calls JAGS with specific options.
-# For a detailed description see the R2jags documentation.
-samples <- jags(data, inits=myinits, parameters,
-	 			 model.file=gaussn, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-# Now the values for the monitored parameters are in the "samples" object, 
-# ready for inspection.
-df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
-           sigma = samples$BUGSoutput$sims.list$sigma)
-
-blankPanel<-grid.rect(gp=gpar(col="white"))
-a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
-b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
-c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+
-  coord_flip()+scale_y_reverse()+xlim(0,3)
-
-#quartz("data")
-grid.arrange(a,c,b,blankPanel,ncol=2)
-
 ```
 
-Same thing but with 3x as much data.
+# 4.1 Inferring a mean and standard deviation
 
-```{r 4.1.1b}
+```{r}
+model41 <- '
+var data = observed_data
 
-x <- c(1.1, 1.9, 2.3, 1.8, 1.1, 1.9, 2.3, 1.8, 1.1, 1.9, 2.3, 1.8)
-n <- length(x)
+var model = function() {
+  var mu = gaussian(0,1/Math.sqrt(0.001)) 
+  var sigma = uniform(0, 10)
 
-data <- list("x", "n") # to be passed on to JAGS
-myinits <- list(
-  list(mu = 0, sigma = 1))
+  observe({
+    data: data,
+    link: Gaussian({mu: mu, sigma: sigma})
+  })
 
-parameters <- c("mu", "sigma")
-
-samples <- jags(data, inits=myinits, parameters,
-   			 model.file=gaussn, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-
-df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
-           sigma = samples$BUGSoutput$sims.list$sigma)
-
-blankPanel<-grid.rect(gp=gpar(col="white"))
-a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
-b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
-c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+
-  coord_flip()+scale_y_reverse()+xlim(0,3)
-
-#quartz("3x data")
-grid.arrange(a,c,b,blankPanel,ncol=2)
-
+  return {mu: mu, sigma: sigma}
+}
+'
 ```
 
-And now with uniform data
+# 4.1.1
 
-```{r 4.1.1c}
+Some suggestions:
+
+(1) Gaussian generated data (HINT: use `data <- 5 + 2 * rnorm(4)` for 4 data points with underlying mu = 5  and sigma = 2)
+(2) a longer list of data (e.g. lenght 10 instead of length 4)
+(3) uniformly generated data (HINT: use `data <- 1.5 * runif(30)`)
+
+```{r}
+dataToUse <- # 5 + 2 * rnorm(4)
+
+res <- webppl(
+    program_code = model41,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    model_var = "model",
+    packages = c("./utils")
+    )
+
+res.samp = get_samples(res, num_samples = 10000) %>% 
+  gather(param, val, mu: sigma) 
   
-x <- 1.5*runif(30)
-n <- length(x)
-
-data <- list("x", "n") # to be passed on to JAGS
-myinits <- list(
-  list(mu = 0, sigma = 1))
-
-parameters <- c("mu", "sigma")
-
-samples <- jags(data, inits=myinits, parameters,
-     		 model.file=gaussn, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-
-df<-data.frame(mu = samples$BUGSoutput$sims.list$mu, 
-           sigma = samples$BUGSoutput$sims.list$sigma)
-
-blankPanel<-grid.rect(gp=gpar(col="white"))
-a<-qplot(data=df,x=mu,y=sigma,geom='point')+theme_bw()+xlim(0,3)+ylim(0,3)
-b<-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
-c<-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)+
-  coord_flip()+scale_y_reverse()
-
-#quartz("uniform random data")
-grid.arrange(a,c,b,blankPanel,ncol=2)
-
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free") + 
+  theme_bw()
 ```
 
+# 4.1.2
 
+```{r}
+dataToUse <- 5 + 2 * rnorm(4)
+
+res <- webppl(
+    program_code = model41,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    model_var = "model",
+    packages = c("./utils")
+    )
+
+res.samp = get_samples(res, num_samples = 10000)
+
+ggplot(res.samp, aes(x = mu, y = sigma)) +
+  geom_point() +
+  theme_bw()
+```
 
 ### 4.1.3
 
-Suppose you knew the standard deviation of the Gaussian was 1.0, but still wanted to infer the mean from data. This is a realistic question: For example, knowing the standard deviation might amount to knowing the noise associated with measuring some psychological trait using a test instrument. The xi values could then be repeated measures for the same person, and their mean the trait value you are trying to infer. Modify the WinBUGS script and Matlab or R code to do this. What does the revised graphical model look like?
-
+Suppose you knew the standard deviation of the Gaussian was 1.0, but still wanted to infer the mean from data. This is a realistic question: For example, knowing the standard deviation might amount to knowing the noise associated with measuring some psychological trait using a test instrument. The xi values could then be repeated measures for the same person, and their mean the trait value you are trying to infer. Modify the model to do this. What does the revised graphical model look like?
 
 ```{r 4.1.3}
+model41FixedSigma <- '
+var data = observed_data
 
-x <- c(1.1, 1.9, 2.3, 1.8)
-n <- length(x)
+var model = function() {
+  var mu = gaussian(0, 1/Math.sqrt(0.001)) 
+  var sigma = // SET SIGMA TO A CONSTANT HERE
 
-data <- list("x", "n") # to be passed on to JAGS
-myinits <- list(
-  list(mu = 0))
+  observe({
+    data: data,
+    link: Gaussian({mu: mu, sigma: sigma})
+  })
 
-parameters <- c("mu")
+  return {mu: mu, sigma: sigma}
+}
+'
 
-cat('# Inferring the Mean and Standard Deviation of a Gaussian
-model{
-  # Data Come From A Gaussian
-  for (i in 1:n){
-    x[i] ~ dnorm(mu,lambda)
-  }
-  # Priors
-  mu ~ dnorm(0,.001)
-  sigma <- 1
-  lambda <- 1/pow(sigma,2)
-}',file={gaussn.mean<-tempfile()})
+dataToUse <- 5 + 1 * rnorm(4)
 
-samples <- jags(data, inits=myinits, parameters,
-       	 model.file=gaussn.mean, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
+res <- webppl(
+    program_code = model41FixedSigma,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    model_var = "model",
+    packages = c("./utils")
+    )
 
-df<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
-
-#quartz("mean only")
-qplot(mu, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
-
+res.samp = get_samples(res, num_samples = 10000) %>% 
+  gather(param, val, mu: sigma) 
+  
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free") + 
+  theme_bw()
 ```
 
 ### 4.1.4
 
 Suppose you knew the mean of the Gaussian was zero, but wanted to infer the standard deviation from data. This is also a realistic question: Suppose you know that the error associated with a measurement is unbiased, so its average or mean is zero, but you are unsure how much noise there is in the instrument. Inferring the standard deviation is then a sensible way to infer the noisiness of the instrument. Once again, modify the WinBUGS script and Matlab or R code to do this. Once again, what does the revised graphical model look like?
 
-```{r 4.1.4}
+```{r 4.1.3}
+model41FixedMu <- '
+var data = observed_data
 
-x <- c(1.1, 1.9, 2.3, 1.8)
-n <- length(x)
+var model = function() {
+  var mu = // SET MU TO A CONSTANT HERE
+  var sigma = uniform(0,1) 
 
-data <- list("x", "n") # to be passed on to JAGS
-myinits <- list(
-  list(sigma = 1))
+  observe({
+    data: data,
+    link: Gaussian({mu: mu, sigma: sigma})
+  })
 
-parameters <- c("sigma")
+  return {mu: mu, sigma: sigma}
+}
+'
 
-cat('# Inferring the Mean and Standard Deviation of a Gaussian
-model{
-  # Data Come From A Gaussian
-  for (i in 1:n){
-    x[i] ~ dnorm(mu,lambda)
-  }
-  # Priors
-  mu <- 0
-  sigma ~ dunif(0,10)
-  lambda <- 1/pow(sigma,2)
-}',file={gaussn.var<-tempfile()})
+dataToUse <- 0 + 5 * rnorm(4)
 
-samples <- jags(data, inits=myinits, parameters,
-       	 model.file=gaussn.var, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
+res <- webppl(
+    program_code = model41FixedSigma,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    model_var = "model",
+    packages = c("./utils")
+    )
 
-df<-data.frame(sigma = samples$BUGSoutput$sims.list$sigma)
-#quartz("sigma only")
-qplot(sigma, data=df, geom='histogram',binwidth=0.1)+theme_bw()+xlim(0,3)
-
+res.samp = get_samples(res, num_samples = 10000) %>% 
+  gather(param, val, mu: sigma) 
+  
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free") + 
+  theme_bw()
 ```
-
 
 ### 4.2 The seven scientists
 
 Seven scientists with wildly-differing experimental skills all make a measurement of the same quantity. They get the answers x = {−27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056}. Intuitively, it seems clear that the first two scientists are pretty inept measurers, and that the true value of the quantity is probably just a bit below 10. The main problem is to find the posterior distribution over the measured quantity, telling us what we can infer from the measurement. A secondary problem is to infer something about the measurement skills of the seven scientists.
 
+# 4.2.1
 
-```{r 4.2.1}
-x <- c(-27.020,3.570,8.191,9.898,9.603,9.945,10.056)
-n <- length(x)
+```{r}
+sevenScientistsModel <- '
+var data = observed_data
 
-data <- list("x", "n")
-myinits <- list(
-  list(mu = 0, lambda = rep(1,n)))
+var model = function() {
+  var mu = gaussian(0,1/Math.sqrt(0.001))
+  
+  // Note that webppl uses shape & scale instead of shape and rate
+  var sigmas = repeat(data.length, function() {return 1/Math.sqrt(gamma(0.1, 1/0.1))})
+  
+  var score = sum(map(function(scientistPair) {
+    var dataPoint = scientistPair[0]
+    var sigma = scientistPair[1]
+    return Gaussian({mu: mu, sigma: sigma}).score(dataPoint);
+  }, zip(data, sigmas)))
 
-parameters <- c("mu", "sigma")
+  factor(score)
 
-cat('# The Seven Scientists
-model{
-  # Data Come From Gaussians With Common Mean But Different Precisions
-  for (i in 1:n){
-    x[i] ~ dnorm(mu,lambda[i])
-  }
-  # Priors
-  mu ~ dnorm(0,.001)
-  for (i in 1:n){
-    lambda[i] ~ dgamma(.001,.001)
-    sigma[i] <- 1/sqrt(lambda[i])  
-  }     
-}',file={seven.scientists<-tempfile()})
+  // To make output easier to parse, give each parameter its own name
+  var parameterNames = map(function(i) {return "sigma" + (i + 1)}, _.range(sigmas.length));
+  return _.extend({mu: mu}, _.object(parameterNames, sigmas));
+}
+'
 
-samples <- jags(data, inits=myinits, parameters,
-	 			 model.file =seven.scientists, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
+dataToUse <- c(-27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056)
 
-df_sigmas<-data.frame(samples$BUGSoutput$sims.list$sigma)
-df_mean<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
+res <- webppl(
+    program_code = sevenScientistsModel,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
+    model_var = "model",
+    packages = c("./utils", "./utils/node_modules/underscore")
+    )
 
-
-a<-ggplot(melt(df_sigmas),aes(x=value))+
-  facet_wrap(~variable,scales='free')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('sigma')+
-  xlim(0, 50)
-
-b<-qplot(data=df_mean,mu,geom='histogram',binwidth=0.2)+theme_bw()
-
-#quartz("seven scientists")
-grid.arrange(a,b,ncol=2)
+res.samp = get_samples(res, num_samples = 100000) %>% 
+  gather(param, val, mu: sigma7) 
+  
+# Truncate at 100 so we can see all the distributions
+ggplot(res.samp %>% filter(val < 100), aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free") + 
+  theme_bw()
 ```
 
+# 4.2.2 
 
-
-Exercise 4.2.2 Change the graphical model in Figure 4.2 to use a uniform prior over the standard deviations, as was done in Figure 4.1. Experiment with the effect the upper bound of this uniform prior has on inference.
-
-
+Change the graphical model in Figure 4.2 to use a uniform prior over the standard deviations, as was done in Figure 4.1. Experiment with the effect the upper bound of this uniform prior has on inference.
 
 ```{r 4.2.2}
-x <- c(-27.020,3.570,8.191,9.898,9.603,9.945,10.056)
-n <- length(x)
+sevenScientistsModel <- '
+var data = observed_data
 
-data <- list("x", "n")
-myinits <- list(
-  list(mu = 0, sigma = rep(5,n)))
+var model = function() {
+  var mu = gaussian(0,1/Math.sqrt(0.001))
+  
+  // Note that webppl uses shape & scale instead of shape and rate
+  var sigmas = repeat(data.length, function() {
+    return uniform(0,25) // CHANGE UPPER BOUND HERE
+  })
+  
+  var score = sum(map(function(scientistPair) {
+    var dataPoint = scientistPair[0]
+    var sigma = scientistPair[1]
+    return Gaussian({mu: mu, sigma: sigma}).score(dataPoint);
+  }, zip(data, sigmas)))
 
-parameters <- c("mu", "sigma")
+  factor(score)
 
-cat('# The Seven Scientists
-model{
-  # Data Come From Gaussians With Common Mean But Different Precisions
-  for (i in 1:n){
-    x[i] ~ dnorm(mu,lambda[i])
-  }
-  # Priors
-  mu ~ dnorm(0,.001)
-  for (i in 1:n){
-    sigma[i] ~ dunif(0,10) 
-    lambda[i] <- 1/pow(sigma[i],2)
-  }     
-}',file={seven.unif<-tempfile()})
+  // To make output easier to parse, give each parameter its own name
+  var parameterNames = map(function(i) {return "sigma" + (i + 1)}, _.range(sigmas.length));
+  return _.extend({mu: mu}, _.object(parameterNames, sigmas));
+}
+'
 
-samples <- jags(data, inits=myinits, parameters,
-   			 model.file=seven.unif, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
+dataToUse <- c(-27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056)
 
-df_sigmas<-data.frame(samples$BUGSoutput$sims.list$sigma)
-df_mean<-data.frame(mu = samples$BUGSoutput$sims.list$mu)
+res <- webppl(
+    program_code = sevenScientistsModel,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
+    model_var = "model",
+    packages = c("./utils", "./utils/node_modules/underscore")
+    )
 
-
-a<-ggplot(melt(df_sigmas),aes(x=value))+
-  facet_wrap(~variable,scales='free')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('sigma')+
-  xlim(0, 50)
-
-b<-qplot(data=df_mean,mu,geom='histogram',binwidth=0.2)+theme_bw()
-
-#quartz("seven scientists, uniform prior over sigma")
-grid.arrange(a,b,ncol=2)
+res.samp = get_samples(res, num_samples = 100000) %>% 
+  gather(param, val, mu: sigma7) 
+  
+# Truncate at 100 so we can see all the distributions
+ggplot(res.samp %>% filter(val < 100), aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free") + 
+  theme_bw()
 ```
 
 ### 4.3 Repeated measures of IQ
