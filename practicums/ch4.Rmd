@@ -13,8 +13,11 @@ This chapter is concerned with inferring the parameters of a Gaussian distributi
 library(R2jags)
 library(gridExtra)
 library(reshape2)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 
-setwd("/Users/mht/Documents/learning/tfbt/Lee&Wagenmakers/Code/ParameterEstimation/Gaussian")
+setwd("~/Repos/webppl-bcm/")
 
 # clears workspace:  
 rm(list=ls()) 
@@ -310,161 +313,129 @@ The data are the measures xij for the i = 1, . . . , n people and their j = 1, .
 
 We assume that the differences in repeated test scores are distributed as Gaussian error terms with zero mean and unknown precision. The mean of the Gaussian of a person’s test scores corresponds to their latent true IQ. This will be different for each person. The standard deviation of the Gaussians corresponds to the accuracy of the testing instruments in measuring the one underlying IQ value. We assume this is the same for every person, since it is conceived as a property of the tests themselves.
 
-MH: Is this analogous to mixed-effects model with a subject-level random effect of intercept (and not slope)?
+```{r}
+IQmodelUniformPrior <- '
+var model = function() {
+  // single SD for all people (corresponding to measurement error)
+  var data = [observed_data["p1"], observed_data["p2"], observed_data["p3"]];
+  var sigma = uniform(0,100)
 
-Exercise 4.3.1 Use the posterior distribution for each person’s μi to estimate their IQ. What can we say about the precision of the IQ test?
+  // each person has a latent IQ; there are different priors we could set here...
+  var mus = repeat(data.length, function() {return uniform(0, 300)})
 
-```{r 4.3.1}
-x <- matrix(c(90,95,100,105,110,115,150,155,160),nrow=3,ncol=3,byrow=T) 
-x
-
-n <- nrow(x) # number of people
-m <- ncol(x) # number of repeated measurements
-
-data <- list("x", "n", "m") # to be passed on to JAGS
-myinits <- list(
-  list(mu = rep(100,n), sigma = 1))
-
-# parameters to be monitored:  
-parameters <- c("mu", "sigma")
-
-cat('# Repeated Measures of IQ
-model{
-  # Data Come From Gaussians With Different Means But Common Precision
-  for (i in 1:n){
-    for (j in 1:m){
-      x[i,j] ~ dnorm(mu[i],lambda)
-    }
-  }
-  # Priors
-  sigma ~ dunif(0,100)
-  lambda <- 1/pow(sigma,2)     
-  for (i in 1:n){
-    mu[i] ~ dunif(0,300)
-  }
-}',file={iq<-tempfile()})
-
-samples <- jags(data, inits=myinits, parameters,
-	 			 model.file =iq, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-
-df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
-df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
-
-a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
-  xlim(0,100)
-b<-ggplot(melt(df_means),aes(x=value))+
-  facet_wrap(~variable,scales='fixed')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('mu')+
-  xlim(50,175)
-
-
-#quartz("repeated IQ")
-grid.arrange(a,b,nrow=2)
+  var score = sum(map(function(IQPair) {
+    var measurements = IQPair[0]
+    var mu = IQPair[1]
+    return sum(map(function(measurement) {
+      return Gaussian({mu: mu, sigma: sigma}).score(measurement);
+    }, measurements));
+  }, zip(data, mus)))
+  factor(score)
+  return {mu1: mus[0], mu2: mus[1], mu3: mus[2], sigma: sigma}
+}
+'
 ```
 
+# 4.3.1 
 
-Exercise 4.3.2 Now, use a more realistic prior assumption for the μi means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. This corresponds to having a prior of mu[i] ∼ dnorm(100,.0044), instead of mu[i] ∼ dunif(0,300), because (1/15)^2 = 0.0044. Make this change in the WinBUGS script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
+Use the posterior distribution for each person’s μi to estimate their IQ. What can we say about the precision of the IQ test?
 
-```{r 4.3.2}
+```{r}
+# Three people with three measurements each; try different values...
+modelToUse <- IQmodelUniformPrior
+dataToUse <- list(p1 = c(90,95,100), p2 = c(105,110,115), p3 = c(150,155,160))
 
-cat('# Repeated Measures of IQ
-model{
-  # Data Come From Gaussians With Different Means But Common Precision
-  for (i in 1:n){
-    for (j in 1:m){
-      x[i,j] ~ dnorm(mu[i],lambda)
-    }
-  }
-  # Priors
-  sigma ~ dunif(0,100)
-  lambda <- 1/pow(sigma,2)     
-  for (i in 1:n){
-    mu[i] ~ dnorm(100,.0044)
-  }
-}',file={iq.realerprior<-tempfile()})
+res <- webppl(
+    program_code = modelToUse,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 50000, burn = 1000),
+    model_var = "model",
+    packages = c("./utils")
+    )
 
-samples <- jags(data, inits=myinits, parameters,
-   			 model.file =iq.realerprior, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-
-df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
-df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
-
-a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
-  xlim(0,100)
-b<-ggplot(melt(df_means),aes(x=value))+
-  facet_wrap(~variable,scales='fixed')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('mu')+
-  xlim(50,175)
-
-#quartz("repeated IQ with realistic prior")
-grid.arrange(a,b,nrow=2)
+res.samp = get_samples(res, num_samples = 50000) %>% 
+  gather(param, val, mu1: sigma) 
+  
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free")
 ```
 
+# 4.3.2 
 
-Exercise 4.3.3 Repeat both of the above stages (i.e., using both priors on μ_i) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
+Now, use a more realistic prior assumption for the μi means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. Make this change in the script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
 
-```{r 4.3.3a}
-#previous data c(90,95,100,105,110,115,150,155,160)
-x <- matrix(c(94,95,96,109,110,111,154,155,156),nrow=3,ncol=3,byrow=T) 
-x
+```{r}
+IQmodelGaussianPrior <- '
+var model = function() {
+  // single SD for all people (corresponding to measurement error)
+  var data = [observed_data["p1"], observed_data["p2"], observed_data["p3"]];
+  var sigma = uniform(0,100)
 
-n <- nrow(x) # number of people
-m <- ncol(x) # number of repeated measurements
+  // each person has a latent IQ; there are different priors we could set here...
+  var mus = repeat(data.length, function() {return gaussian(100, 15);})
 
-data <- list("x", "n", "m") # to be passed on to JAGS
-myinits <- list(
-  list(mu = rep(100,n), sigma = 1))
-
-# parameters to be monitored:  
-parameters <- c("mu", "sigma")
-
-samples <- jags(data, inits=myinits, parameters,
-   			 model.file =iq, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
-
-df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
-df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
-
-a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
-  xlim(0,100)
-b<-ggplot(melt(df_means),aes(x=value))+
-  facet_wrap(~variable,scales='fixed')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('mu')+
-  xlim(90,160)
-
-
-#quartz("repeated IQ, data 2")
-grid.arrange(a,b,nrow=2)
+  var score = sum(map(function(IQPair) {
+    var measurements = IQPair[0]
+    var mu = IQPair[1]
+    return sum(map(function(measurement) {
+      return Gaussian({mu: mu, sigma: sigma}).score(measurement);
+    }, measurements));
+  }, zip(data, mus)))
+  factor(score)
+  return {mu1: mus[0], mu2: mus[1], mu3: mus[2], sigma: sigma}
+}
+'
 ```
 
-```{r 4.3.3b}
-samples <- jags(data, inits=myinits, parameters,
-     		 model.file =iq.realerprior, n.chains=1, n.iter=1000, 
-         n.burnin=1, n.thin=1, DIC=T)
+```{r}
+# Three people with three measurements each; try different values...
+modelToUse <- IQmodelGaussianPrior
+dataToUse <- list(p1 = c(90,95,100), p2 = c(105,110,115), p3 = c(150,155,160))
 
-df_sigma<-data.frame(sigma=samples$BUGSoutput$sims.list$sigma)
-df_means<-data.frame(samples$BUGSoutput$sims.list$mu)
+res <- webppl(
+    program_code = modelToUse,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 1000),
+    model_var = "model",
+    packages = c("./utils")
+    )
 
-a<-qplot(data=df_sigma,sigma,geom='histogram',binwidth=0.2)+theme_bw()+
-  xlim(0,100)
-b<-ggplot(melt(df_means),aes(x=value))+
-  facet_wrap(~variable,scales='fixed')+
-  geom_histogram(binwidth=1)+
-  theme_bw()+
-  xlab('mu')+
-  xlim(90,160)
+res.samp = get_samples(res, num_samples = 100000) %>% 
+  gather(param, val, mu1: sigma) 
+  
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free")
 
-#quartz("repeated IQ with realistic prior, data 2")
-grid.arrange(a,b,nrow=2)
 ```
 
+# 4.3.3. 
 
-Answer is low variance?
+Repeat both of the above stages (i.e., using both priors on μ_i) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
+
+```{r}
+# Three people with three measurements each; try different values...
+# modelToUse <- IQmodelUniformPrior 
+modelToUse <- IQmodelGaussianPrior 
+dataToUse <- list(p1 = c(94, 95, 96), p2 = c(109, 110,111), p3 = c(154,155,156))
+
+res <- webppl(
+    program_code = modelToUse,
+    data = dataToUse,
+    data_var = "observed_data",
+    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
+    model_var = "model",
+    packages = c("./utils")
+    )
+
+res.samp = get_samples(res, num_samples = 100000) %>% 
+  gather(param, val, mu1: sigma) 
+  
+ggplot(res.samp, aes(x = val)) +
+  geom_histogram() +
+  facet_wrap( ~ param, scale =  "free")
+
+```
