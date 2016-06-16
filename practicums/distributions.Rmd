@@ -1,5 +1,5 @@
 ---
-title: 'Psych 201s: Distributions'
+title: 'Psych 201s: Randomness in R'
 author: "mht"
 date: "May 5, 2016"
 output: html_document
@@ -24,6 +24,8 @@ The simplest probability distribution results from the random process of flippin
 You can think of this as a 2-alternative forced choice task.
 
 There are 4 functions in R you can use to access probility distributions.
+
+We're going to be through them through visualization using the Bernoulli and the Binomial distributions.
 
 ### Samples
 
@@ -216,13 +218,17 @@ Why is the probability of 4 in this graph greater than the probabilty of 4 in th
 
 ### Quantile function
 
-qbinom is the opposite of dbinom.
-dbinom: outcome -> probability
-qbinom: probability -> outcome
+The quantile function is arguably the weirdest of the functions, and I don't fully understand it's utility. Certaintly in these examples, it's quite esoteric. But maybe you'll find a use for it at some point in your career.
 
-It's not exactly true but it's close. Actually, qbinom will give you the max(outcome).
+qbinom is the opposite of pbinom.
 
-syntax: `dbinom(size = number_of_trials, prob = probability_of_success, p = target_probability)` 
+pbinom: outcome -> cumulative_probability
+qbinom: cumulative_probability -> outcome
+
+It's not exactly true but it's close. 
+Actually, qbinom will give you the max(outcome).
+
+syntax: `qbinom(size = number_of_trials, prob = probability_of_success, p = cumulative_probabilities)` 
 
 ```{r quantile}
 
@@ -240,3 +246,39 @@ ggplot(binomial_quantiles,
   geom_bar(stat='identity', position=position_dodge())
 
 ```
+
+This is definitely the weirest plot of the 4. 
+I could imagine using something like this to draw confidence intervals.
+Let's try it:
+
+```{r quantile}
+
+cumulative_probabilities <- c(0.025, 0.975) # 95 % quantiles
+
+outcomes <- qbinom(size = 5, prob = 0.5, p = cumulative_probabilities)
+
+binomial_quantiles <- data.frame(
+          probs = cumulative_probabilities,
+           values = outcomes
+          )
+
+ggplot(binomial_quantiles, 
+       aes(x = probs, y = values))+
+  geom_bar(stat='identity', position=position_dodge())
+
+```
+
+That's extremely boring. What if we change the number of coin flips (size) from 5 to 100?
+
+What does that tell us?
+
+
+So far, we've look at only the outcome of flipping a coin (a bernoulli) and of flipping a coin multiple times (a binomial).
+
+Let's look at Gaussian distributions, now.
+
+
+# The Gaussian distribution
+
+
+
