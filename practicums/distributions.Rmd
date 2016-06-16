@@ -4,46 +4,132 @@ author: "mht"
 date: "May 5, 2016"
 output: html_document
 ---
+Load some packages
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
 
 A fundamental concept in probability and statistics is that of a probability distribution.
-There are different "families" of distributions, corresponding to different "random processes". 
+There are different kinds of distributions, called "families", corresponding to different "random processes". 
 
 We'll consider a few here. 
 First, we'll explore the distributions using R. 
-Then, we'll see how to look at them using JAGS.
 
 # Bernoulli distribution
 
 The simplest probability distribution results from the random process of flipping a coin.
+You can think of this as a 2-alternative forced choice task.
 
 There are 4 functions in R you can use to access probility distributions.
 
 ### Samples
 
 My favorite function is the random sampling function. 
-syntax: rbinom(n = number_of_experiments, size = number_of_trials, prob = probability_of_success)
-for a single coin flip: number_of_trials = 1
-for a fair coin, probability_of_success = 0.5 (but for a biased coin, it could be between 0 and 1)
-outcome is either 0 (tails) or 1 (heads)...
+syntax: `rbinom(size = number_of_trials, prob = probability_of_success, n = number_of_participants)`
 
-```{r samples}
-rbinom(100, size=1, prob=0.5)
+A Bernoulli is a single trial experiment, a single flip of a coin: `size = 1`
+If `prob = 0.5`, we are dealing with a fair coin (e.g., if participants are guessing at random).
 
-# kind of messy just looking at numbers, pass it qplot [this may require the tidyr package]
-rbinom(100, size=1, prob=0.5) %>%
+An outcome is a success 1 (heads) or a failure 0 (tails).
+
+Here is one trial for one participant.
+```{r}
+rbinom(size = 1, prob = 0.5, n = 1) # run this a couple of times
+```
+
+Simulate 100 participants, 1 trial each
+
+```{r}
+rbinom(size = 1, prob = 0.5, n = 100)
+```
+
+Kind of messy just looking at numbers. Let's pass it qplot.
+
+```{r}
+rbinom(size=1, prob=0.5, n = 100) %>%
   qplot()
-
-# note: this is the same as qplot(rbinom(100, size=1, prob=0.5)) 
 # qplot is smart and if you give it a list of numbers, it will make you a histogram automagically
 ```
 
-In all honesty, to think about distributions, I use the rbinom function 98% of the time. 
-But I'll introduce the other functions here, just for completeness.
+Note: The above code is the same as `qplot(rbinom(size = 1, prob = 0.5, n = 100)) `
+
+In some languages, to get a sample from the Bernoulli distribution, you write `flip(prob = 0.5)` [because a sample from the bernoulli distribution is the same as flipping a coin].
+
+# Binomial distribution
+
+The Bernoulli distrubition (above) is very intimately related to the Binomial distribution (the Bernoulli distribution is a special case of the Binomial distribution). In fact, we've already been calling the Binomial distribution sampling function.
+
+The binomial distribution is the result of flipping the same coin multiple times, and counting up how many heads you got.
+Or, in our psychology experiment analogy, have multiple trials for each participant. (In this case, the trials are same, or perhaps you can imagine they are part of the same experimental condition.)
+
+Single participant, 3 trials.
+
+```{r}
+rbinom(size = 3, prob = 0.5, n = 1) # run this a couple of times
+```
+
+What is the relationship of the above code, to the code below?
+
+```{r}
+rbinom(size = 1, prob = 0.5, n = 3) # run this a couple of times
+```
+
+What if we flip 100 coins, and each of them we flip 5 times?
+(or, 100 participants, 5 trials each)
+
+```{r}
+rbinom(size = 5, prob = 0.5, n = 100) %>%
+  qplot()
+```
+
+What is the X axis?
+
+
+What are the bounds of the X-axis (max value, min value), and why are they what they are?
+
+What do the heights of the bars represent?
+
+Is 2 more probable than 3?
+
+Try running 1000 participants.
+
+What about now?
+
+10000 participants!
+
+
+Simulate a distribution of outcomes of 10000 participants with 20 trials / participant, with a true probability of success of 0.5
+
+[If you're not comfortable imagining 10000 participants, you can substitute in your head participants with *experiments* and trials with *participants* (and it will be a single trial experiment). So this would be 10000 experiments of 20 participants doing a single trial experiment.].
+
+```{r}
+rbinom(size = ..., prob = ..., n = ...) %>%
+  qplot()
+```
+
+What if the true probability of success is 0.75?
+
+What can you read off this distribution? [Using either interpretation I provided above.]
+
+Put in numbers that seem realistic for the types of experiments you run. (e.g. 20 participants, 3 trials each), and look at the distribution.
+
+```{r}
+rbinom(size = ..., prob = ..., n = ...) %>%
+  qplot()
+```
+
+In all honesty, to think about distributions in R, I use the rbinom function (or `rnorm`, `rbeta`, `runif`, ...) 98% of the time.
+
+There are other functions in R to help you think about distributions.
 
 ### Probability density
 
 dbinom gives you the probability of a certain outcome (technically, this is called the *probability density*)
-syntax: dbinom(x=outcome, size=number_of_trials, prob=probability_of_success) [also see ?dbinom]
+syntax: `dbinom(size = number_of_trials, prob = probability_of_success, x = outcome)` 
+[also see ?dbinom]
 
 ```{r density}
 dbinom(x=0, size=1, prob=0.5)
