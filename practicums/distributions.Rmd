@@ -131,16 +131,88 @@ dbinom gives you the probability of a certain outcome (technically, this is call
 syntax: `dbinom(size = number_of_trials, prob = probability_of_success, x = outcome)` 
 [also see ?dbinom]
 
+
+We'll start back with the single trial, single participant setup.
+
 ```{r density}
-dbinom(x=0, size=1, prob=0.5)
-# you can also supply a vector of outcomes
-dbinom(x=c(0,1), size=1, prob=0.9)
+dbinom(size = 1, prob = 0.5, x = 0)
 ```
 
-What happens if you set the outcome to a number other than 0 or 1?
-What happens if you set the probability_of_success to a number less than 0 or greater than 1?
+Run this multiple times. Do you get different answers? Why or why not?
 
-Let's not explore the number_of_trials parameter yet.
+```{r}
+# you can also supply a vector of outcomes
+dbinom(size = 1, prob = 0.5, x = c(0,1))
+```
+
+What happens if you change the `probability_of_success` to 0.8?
+
+What happens if you set the outcome to a number other than 0 or 1?
+
+What happens if you set the `probability_of_success` to a number less than 0 or greater than 1?
+
+Let's try the binomial with 5 flips (e.g. 5 trials per participant)
+
+What's the probabilty of 2? of 3?
+```{r}
+dbinom(size = 5, prob = 0.5, x = 2)
+```
+
+Here, we get an exact answer (unlike before when we were looking at the results of rbinom in a histogram).
+
+We can try for every possible outcome. 
+```{r}
+dbinom(size = 5, prob = 0.5, x = c(0,1,2,3,4,5))
+```
+
+Let's save the output, and visualize it!
+
+```{r}
+probabilities <- dbinom(size = 5, prob = 0.5, x = c(0,1,2,3,4,5))
+
+binomial_density <- data.frame(
+          values = c(0,1,2,3,4,5),
+           probs = probabilities
+          )
+
+binomial_density
+
+ggplot(binomial_density,
+       aes(x = values, y = probs))+
+  geom_bar(stat='identity', position=position_dodge())
+```
+
+Ooh, ahh. Do you understand why this is perfectly symmetric while the one we made before was jaggedy?
+
+Try changing the `prob` to different numbers to see how this changes.
+
+### Cumulative probability
+
+What we just looked at was the probability associated with different outcomes.
+Sometimes, we are interested in the *cumulative* probability.
+This is the probabilty of a given outcome, or outcomes less than that.
+(for example, the probability that participants got 2 or fewer trials correct, out of 5)
+
+
+Let's jump straight to the visualization because that's the most fun.
+(Feel free to execute all the intermediary steps, and try it with different parameters).
+
+```{r}
+probabilities <- pbinom(size = 5, prob = 0.5, q = c(0,1,2,3,4,5))
+
+binomial_cumulative <- data.frame(
+          values = c(0,1,2,3,4,5),
+           probs = probabilities
+          )
+
+binomial_cumulative
+
+ggplot(binomial_cumulative, 
+       aes(x = values, y = probs))+
+  geom_bar(stat='identity', position=position_dodge())
+```
+
+Why is the probability of 4 in this graph greater than the probabilty of 4 in the density graph (the one from before)?
 
 ### Quantile function
 
@@ -150,17 +222,21 @@ qbinom: probability -> outcome
 
 It's not exactly true but it's close. Actually, qbinom will give you the max(outcome).
 
+syntax: `dbinom(size = number_of_trials, prob = probability_of_success, p = target_probability)` 
+
 ```{r quantile}
-qbinom(0.8, size=1, prob=0.5)
+
+cumulative_probabilities <- c(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1)
+
+outcomes <- qbinom(size = 5, prob = 0.5, p = cumulative_probabilities)
+
+binomial_quantiles <- data.frame(
+          probs = cumulative_probabilities,
+           values = outcomes
+          )
+
+ggplot(binomial_quantiles, 
+       aes(x = probs, y = values))+
+  geom_bar(stat='identity', position=position_dodge())
+
 ```
-
-### Cumulative probability
-
-pbinom gives you the probability of outcome<=q (equal or less than)
-For the bernoulli distribution, this isn't very interesting as there are only two outcomes (0 or 1). 
-
-```{r cumulative}
-pbinom(q = 0, size=1, prob= 0.5)
-```
-
-
