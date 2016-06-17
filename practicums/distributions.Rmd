@@ -11,21 +11,19 @@ library(dplyr)
 library(ggplot2)
 ```
 
-
 A fundamental concept in probability and statistics is that of a probability distribution.
 There are different kinds of distributions, called "families", corresponding to different "random processes". 
 
-We'll consider a few here. 
-First, we'll explore the distributions using R. 
+We'll consider a few here and explore them using what comes with R.
+
+There are 4 functions in R you can use to access prabability distributions.
+
+We're going to be through them through visualization, using the Bernoulli and the Binomial distributions.
 
 # Bernoulli distribution
 
 The simplest probability distribution results from the random process of flipping a coin.
-You can think of this as a 2-alternative forced choice task.
-
-There are 4 functions in R you can use to access probility distributions.
-
-We're going to be through them through visualization using the Bernoulli and the Binomial distributions.
+In Psychology, we might think of this as a 2-alternative forced choice task (1 trial, 1 subject).
 
 ### Samples
 
@@ -33,16 +31,17 @@ My favorite function is the random sampling function.
 syntax: `rbinom(size = number_of_trials, prob = probability_of_success, n = number_of_participants)`
 
 A Bernoulli is a single trial experiment, a single flip of a coin: `size = 1`
-If `prob = 0.5`, we are dealing with a fair coin (e.g., if participants are guessing at random).
+If `prob = 0.5`, we are dealing with a fair coin (e.g., if participants are guessing at random, or the "true" probability of success is 0.5).
 
 An outcome is a success 1 (heads) or a failure 0 (tails).
 
-Here is one trial for one participant.
+Here is one trial
+
 ```{r}
 rbinom(size = 1, prob = 0.5, n = 1) # run this a couple of times
 ```
 
-Simulate 100 participants, 1 trial each
+Simulate 100 trials
 
 ```{r}
 rbinom(size = 1, prob = 0.5, n = 100)
@@ -62,25 +61,27 @@ In some languages, to get a sample from the Bernoulli distribution, you write `f
 
 # Binomial distribution
 
-The Bernoulli distrubition (above) is very intimately related to the Binomial distribution (the Bernoulli distribution is a special case of the Binomial distribution). In fact, we've already been calling the Binomial distribution sampling function.
+The Bernoulli distribution (above) is very intimately related to the Binomial distribution (the Bernoulli distribution is a special case of the Binomial distribution). In fact, we've already been calling the Binomial distribution sampling function. 
 
-The binomial distribution is the result of flipping the same coin multiple times, and counting up how many heads you got.
-Or, in our psychology experiment analogy, have multiple trials for each participant. (In this case, the trials are same, or perhaps you can imagine they are part of the same experimental condition.)
+The Bernoulli distribution is the result of flipping one coin one time (`size = 1`).
+The Binomial distribution is the result of flipping one coin multiple times, and counting up how many heads you got.
+Or, in our psychology experiment analogy, an experiment with multiple trials. (In this case, the trials are same, or perhaps you can imagine they are part of the same experimental condition.)
 
-Single participant, 3 trials.
+3 trials
 
 ```{r}
 rbinom(size = 3, prob = 0.5, n = 1) # run this a couple of times
 ```
 
 What is the relationship of the above code, to the code below?
+...
 
 ```{r}
 rbinom(size = 1, prob = 0.5, n = 3) # run this a couple of times
 ```
 
 What if we flip 100 coins, and each of them we flip 5 times?
-(or, 100 participants, 5 trials each)
+(or imagine, 100 participants, 5 trials each)
 
 ```{r}
 rbinom(size = 5, prob = 0.5, n = 100) %>%
@@ -88,24 +89,26 @@ rbinom(size = 5, prob = 0.5, n = 100) %>%
 ```
 
 What is the X axis?
-
+...
 
 What are the bounds of the X-axis (max value, min value), and why are they what they are?
+...
 
 What do the heights of the bars represent?
+...
 
 Is 2 more probable than 3?
+...
 
 Try running 1000 participants.
 
 What about now?
+...
 
 10000 participants!
 
 
 Simulate a distribution of outcomes of 10000 participants with 20 trials / participant, with a true probability of success of 0.5
-
-[If you're not comfortable imagining 10000 participants, you can substitute in your head participants with *experiments* and trials with *participants* (and it will be a single trial experiment). So this would be 10000 experiments of 20 participants doing a single trial experiment.].
 
 ```{r}
 rbinom(size = ..., prob = ..., n = ...) %>%
@@ -114,33 +117,38 @@ rbinom(size = ..., prob = ..., n = ...) %>%
 
 What if the true probability of success is 0.75?
 
-What can you read off this distribution? [Using either interpretation I provided above.]
+What can you read off this distribution? 
+...
 
 Put in numbers that seem realistic for the types of experiments you run. (e.g. 20 participants, 3 trials each), and look at the distribution.
+
+(Since our experiments tend to have few participants and few trials, probably you will want to run the code multiple times.)
 
 ```{r}
 rbinom(size = ..., prob = ..., n = ...) %>%
   qplot()
 ```
 
-In all honesty, to think about distributions in R, I use the rbinom function (or `rnorm`, `rbeta`, `runif`, ...) 98% of the time.
+In all honesty, to think about distributions in R, I use the random sampling function (`rbinom`, or `rnorm`, `rbeta`, `runif`, ...) 98% of the time.
 
-There are other functions in R to help you think about distributions.
+There are other functions in R to help you think about distributions. We'll briefly look at them.
 
 ### Probability density
 
-dbinom gives you the probability of a certain outcome (technically, this is called the *probability density*)
+`dbinom` gives you the probability of a certain outcome (technically, this is called the *probability density*)
 syntax: `dbinom(size = number_of_trials, prob = probability_of_success, x = outcome)` 
 [also see ?dbinom]
 
 
-We'll start back with the single trial, single participant setup.
+We'll start back with the single trial (one coin) setup.
 
 ```{r density}
 dbinom(size = 1, prob = 0.5, x = 0)
 ```
 
 Run this multiple times. Do you get different answers? Why or why not?
+...
+
 
 ```{r}
 # you can also supply a vector of outcomes
@@ -148,14 +156,19 @@ dbinom(size = 1, prob = 0.5, x = c(0,1))
 ```
 
 What happens if you change the `probability_of_success` to 0.8?
+...
 
 What happens if you set the outcome to a number other than 0 or 1?
+...
 
 What happens if you set the `probability_of_success` to a number less than 0 or greater than 1?
+...
 
 Let's try the binomial with 5 flips (e.g. 5 trials per participant)
 
 What's the probabilty of 2? of 3?
+...
+
 ```{r}
 dbinom(size = 5, prob = 0.5, x = 2)
 ```
@@ -168,6 +181,8 @@ dbinom(size = 5, prob = 0.5, x = c(0,1,2,3,4,5))
 ```
 
 Let's save the output, and visualize it!
+
+Try to read through the code below. Execute each step and print the new variable to the console to get some feeling for what is happening.
 
 ```{r}
 probabilities <- dbinom(size = 5, prob = 0.5, x = c(0,1,2,3,4,5))
@@ -192,9 +207,8 @@ Try changing the `prob` to different numbers to see how this changes.
 
 What we just looked at was the probability associated with different outcomes.
 Sometimes, we are interested in the *cumulative* probability.
-This is the probabilty of a given outcome, or outcomes less than that.
+This is, the probabilty of a given outcome, or outcomes less than that.
 (for example, the probability that participants got 2 or fewer trials correct, out of 5)
-
 
 Let's jump straight to the visualization because that's the most fun.
 (Feel free to execute all the intermediary steps, and try it with different parameters).
@@ -215,6 +229,7 @@ ggplot(binomial_cumulative,
 ```
 
 Why is the probability of 4 in this graph greater than the probabilty of 4 in the density graph (the one from before)?
+...
 
 ### Quantile function
 
@@ -272,13 +287,113 @@ That's extremely boring. What if we change the number of coin flips (size) from 
 
 What does that tell us?
 
+Those are 4 functions in R used to deal with randomness. 
+We examined them through the Bernoulli and Binomial distributions.
+These distributiosn reflect the outcome of flipping a coin (a bernoulli) and of flipping a coin multiple times (a binomial).
 
-So far, we've look at only the outcome of flipping a coin (a bernoulli) and of flipping a coin multiple times (a binomial).
+Could we generalize this rolling a die? (or, in psychology, having a task with more than 2 alternatives?)
 
-Let's look at Gaussian distributions, now.
+It turns out, there is a such a distribution. It's called a multinomial distribution!
+
+# Multinomial
+
+In R, multinomial only has 2 functions: sampling and density.
+
+This simulates rolling a 3-sided die (and telling you what side it landed it)
+```{r}
+rmultinom(n = 1, size = 1, prob = c(0.33, 0.33, 0.33))
+```
+
+By changing the `n` parameter, you can repeatedly roll 1 die, and return the results from each roll.
+
+By changing the `size` parameter, you can roll more dice and count the number of times it lands on each side.
+
+Try turning the size parameter up. What happens? Why?
+...
 
 
-# The Gaussian distribution
+# Gaussian distribution
+
+The Gaussian distribution is every lay person's favorite distribution. It is named after  [Carl Friedrich Gauss](https://en.wikipedia.org/wiki/Carl_Friedrich_Gauss) (1777-1855), one of the greatest (arguably, the greatest) mathematician of the last 2000 years. Colloquially, we refer to this distribution as the "Normal" distribution, as if there is something normal about it. I heard one of the preeminent probabilists of our time, Stanford Professor [Persi Diaconis](https://en.wikipedia.org/wiki/Persi_Diaconis), say that "Scientists use the normal distribution because they think it is a [mathematical] theorem. Mathematicians use the normal distribution because they say scientists tell them that's how the world works."
+
+Regardless of whether or not things are actually "normally" distributed in the world, it will be useful to think about Gaussian distributions from time to time.
+
+Let's start by sampling from one.
 
 
+```{r}
+rnorm(mean = 0, sd = 1, n = 1)
+```
 
+Take many samples and visualize
+
+```{r}
+rnorm(mean = .., sd = .., n = ..) %>%
+  qplot()
+```
+
+## Log-normal
+
+It is an empirical fact that reaction times are often log-normally distributed. What is log-normal? 
+
+The logarithm is one of the most amazing mathematical inventions, with [a rich history](https://en.wikipedia.org/wiki/History_of_logarithms). The takeaway is that logarithms turn multiplication problems into addition problems. This is awesome because, as you might remember, addition is a lot easier than multiplication.
+
+The opposite of a logarithm is *exponentiation*. This turns addition problems into multiplication problems (or just undoes a logarithmic transformation).
+
+When something is *log-normally distributed*, that means, if you took the logarithm of the data, it would be normally distributed. (Hence, why people sometimes log-transform their data.). If you wanted to go from a normal distribution to log-normal data, you would *exponentiate* the normal data.
+
+Since `rnorm` will return a vector of numbers, we can pass it directly to `exp` to exponentiate all of those numbers.
+
+```{r}
+exp(rnorm(mean = 0, sd = 1, n = 1000)) %>%
+  qplot()
+```
+
+By doing an exponential transformation, that ensures none of the numbers will be negative. (For example, 2 raised to any power, is greater than 0). Always, it just happens to look like RT data.
+
+
+# Poisson distribution
+
+The [Poisson distribution](https://en.wikipedia.org/wiki/Poisson_distribution) is often used to model an *arrival process* (for example, modeling how many people will line up in a queue in the next 10 minutes).
+Unlike a Gaussian, which has a mean and variance parameter, the Poisson just has one parameter: the rate `lambda`
+
+Check out what the Poisson looks like. Try altering `lambda` (note the lambda, the rate, has to be positive).
+
+```{r}
+rpois(lambda = 5, n = 1000) %>% 
+  qplot()
+```
+
+
+# Uniform distribution
+
+The uniform distribution is another household favorite. It's fairly straightforward: it has a `min` and `max` parameter
+
+```{r}
+runif(min = 0, max = 1, n = 10000) %>%
+  qplot()
+```
+The ends drop off because of the binning.
+
+A uniform distribution (with min = 0 ; max = 1) can be a used as a distribution over *probabilities* (!). Each sample from this distibution is a number between 0 - 1, which is what we need for it be considered a probability! We will use this distribution a lot throughout this course.
+
+
+## Beta distribution
+
+Sometimes, we want a distribution over probabilities, but we don't want it to be uniform. There is a generalization of the uniform distribution called the Beta distribution.
+
+The Beta distribution has 2 parameters, called very informatively `shape1` and `shape2`. When each of these is `= 1`, then we have a uniform distribution. If we imagine a probability is the weight of a coin, the shape parameters can be thought of as "pseudocounts" of heads and tails that we observed before (*shape parameters cannot be less than 0*). So. If shape1 is higher, that means we hypothetically already flipped the coin several times and it came up heads a lot. (If shape 2 is high, then when we flipped it before, it came up tails a lot.)
+
+```{r}
+rbeta(shape1 = ..., shape2 = ..., n = 1000) %>% 
+  qplot()
+```
+
+Try looking at the beta when shape1 is high, and then when shape2 is high. 
+
+What happens when both shape1 and shape2 are high? Why?
+...
+
+
+Now, set both shape1 and shape2 to a number less than 1, like 0.3. What does the distribution look like? 
+...
