@@ -206,7 +206,8 @@ res <- webppl(
     program_code = sevenScientistsModel,
     data = dataToUse,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
+    inference_opts = list(method = "incrementalMH", 
+                          samples = 100000, burn = 10000, verbose = TRUE),
     model_var = "model",
     packages = c("./utils", "./utils/node_modules/underscore")
     )
@@ -383,24 +384,32 @@ Repeat both of the above stages (i.e., using both priors on μ_i) with a new, bu
 
 ```{r}
 # Three people with three measurements each; try different values...
-# modelToUse <- IQmodelUniformPrior 
-modelToUse <- IQmodelGaussianPrior 
+modelToUse <- IQmodelUniformPrior 
+# modelToUse <- IQmodelGaussianPrior 
 dataToUse <- list(p1 = c(94, 95, 96), p2 = c(109, 110,111), p3 = c(154,155,156))
 
-res <- webppl(
-    program_code = modelToUse,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
-    model_var = "model",
-    packages = c("./utils")
-    )
+numSamples = 10000;
 
-res.samp = get_samples(res, num_samples = 100000) %>% 
-  gather(param, val, mu1: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
+res.samp <- webppl(program_code = modelToUse,
+       data = dataToUse,
+       data_var = "observed_data",
+       inference_opts = list(method="MCMC", 
+                             kernel = 
+                               list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = 0.1)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+      model_var = "model",
+      packages = c("./utils"),
+      output_format = "samples"
+      )
+
+res.samp %>%
+  gather(parameter, val) %>%
+  ggplot(aes(x = val)) +
   geom_histogram() +
-  facet_wrap( ~ param, scale =  "free")
+  facet_wrap( ~ parameter, scale =  "free")
 
 ```
