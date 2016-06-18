@@ -1,5 +1,5 @@
 ---
-title: 'Psych 201s: Distributions and functional programming in WebPPL'
+title: 'Psych 201s: Generative models and functional programming in WebPPL'
 author: "mht"
 date: "June 6, 2016"
 output: html_document
