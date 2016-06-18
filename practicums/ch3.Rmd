@@ -207,6 +207,8 @@ runModel(myFirstModel, observed_data) %>%
   
 ### 3.2 Difference between two rates
 
+* Rejection may not be a good idea for this section -- takes forever*
+
 ```{r}
 # k1 = number of heads for coin 1
 # k2 = number of heads for coin 2
@@ -319,7 +321,7 @@ Run the model, example:
 
 ```{r}
 observed_data = list(k1 = 5, n1 = 10, k2 = 7, n2 = 10)
-runModel(commonRateModel, observed_data) 
+runModel(commonRateModel, observed_data) %>%
   ggplot(aes(x = p)) +
   geom_density(binwidth = .025)
 ```
@@ -360,17 +362,17 @@ runModel(commonRateModel, observed_data) %>%
 
 ### 3.4 Prior and posterior prediction
 
-** This example is broken due to issue #20 in rwebppl **
+** The binomial posterior is wonky because of bugs with binomial in webppl.**
+** fixed in commit fb740b4 **
 
 ```{r}
 firstModelWithPredictives <- '
 // Unpack data
-var k = observed_data["k"] // number of heads
-var n = observed_data["n"] // number of flips
-
+var k = observed_data["k"][0] // number of heads
+var n = observed_data["n"][0] // number of flips
 var model = function() {
    var p = uniform( {a:0, b:1} )
-   
+
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
@@ -388,14 +390,21 @@ var model = function() {
 '
 ```
 
-
 ```{r}
 observed_data <- list(k = 1, n = 15)
-runModel(firstModelWithPredictives, observed_data) %>%
-  ggplot() +
-  geom_histogram(aes(x = prior)) +
-  geom_histogram(aes(x = posterior))
+results <- runModel(firstModelWithPredictives, observed_data) 
 
+results %>%
+  select(prior, posterior) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, fill = distribution)) +
+  geom_density(alpha = .5)
+
+results %>%
+  select(priorPredictive, posteriorPredictive) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, group = distribution, color = distribution)) +
+  geom_bar(alpha = .5, position = "dodge")
 ```
 
 # 3.4.1
@@ -490,7 +499,7 @@ var model = function() {
 
 ### 3.5 Posterior Prediction
 
-** This example is also broken due to issue #20 in rwebppl **
+** Rejection sampling fails here **
 
 ```{r}
 commonRateModelWithPredictives <- '
@@ -515,17 +524,16 @@ var model = function() {
     data : k2,           // Observed k number of Heads
     link: Binomial( {p : p, n: n2 }) // assuming a Binomial distribution
   }) 
-  var posteriorPredictive = {k1 : sample(Binomial({p : p, n: n1})),
-                             k2 : sample(Binomial({p : p, n: n2}))}
+
   return {p : p,
-          posteriorPredictive : posteriorPredictive}
+          };
 }
 '
 ```
 
 ```{r}
 observed_data <- list(k1 = 0, n1 = 10, k2 = 10, n2 = 10)
-runModel(commonRateModelWithPredictives, observed_data)
+res <- runModel(commonRateModelWithPredictives, observed_data, numSamples = 1)
 ```
 
 
