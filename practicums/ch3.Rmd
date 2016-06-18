@@ -48,8 +48,8 @@ var number_flips = data_from_R["number_flips"][0]
 
 var model = function(){
   var p = sample(Uniform( {a:0, b:1} )) // prior on coin weights
-  observe(
-  { data : number_heads,   // observed data: numbers of heads
+  observe({ 
+    data : number_heads,   // observed data: numbers of heads
     link : Binomial( {n:number_flips, p: p} ) } // linking function is a Binomial 
   )
   return p
@@ -89,8 +89,26 @@ runModel = function(model, data_to_webppl,
     packages = c("./utils")
     )
 }
+```
 
+Here's the model from above re-written using the expected parameter names, using the helper function. 
 
+```{r}
+modelWithNoData <- '
+// data is currently passed as a list
+// when there is just one data point, grab the 0th element of the list
+var number_heads = observed_data["number_heads"][0]
+var number_flips = observed_data["number_flips"][0]
+
+var model = function(){
+  var p = sample(Uniform( {a:0, b:1} )) // prior on coin weights
+  observe({ 
+    data : number_heads,   // observed data: numbers of heads
+    link : Binomial( {n:number_flips, p: p} ) } // linking function is a Binomial 
+  )
+  return p
+}
+'
 data_to_webppl = list(number_heads = 15, number_flips = 20)
 rs <- runModel(modelWithNoData, data_to_webppl)
 
@@ -103,8 +121,8 @@ rs <- runModel(modelWithNoData, data_to_webppl)
 ```{r}
 myFirstModel <- '
 // Unpack data
-var k = observed_data["k"] // number of heads
-var n = observed_data["n"] // number of flips
+var k = observed_data[0]["k"] // number of heads
+var n = observed_data[0]["n"] // number of flips
 
 var model = function() {
    var p = uniform( {a:0, b:1} )    // sample from a uniform
@@ -112,21 +130,20 @@ var model = function() {
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
    })
-   return {p: p}
+  // var predictive = sample(Binomial({p : p, n : n}))
+  return {p: p}
 }
 '
-# k = number of heads
-# n = number of coin flips
 ```
 
 Writing a model as a string in R is convenient, but it is also convenient to see syntax-highlighting (like you get syntax highlighting for R). To get this, we can just write out model as a .wppl file in our folder. You can open the file in RMarkdown so you can view it and edit it here. In the bottom-right of the editor, you can change the language to JavaScript to get some helpful comments on your syntax. (Note there are a few differences between JavaScript and WebPPL so not all of the comments may apply).
 
 ```{r}
-webppl(myFirstModel)
-
+data_to_webppl = data.frame(k = 15, n = 20)
 
 runModel(myFirstModel, data_to_webppl) %>%
-  ggs_histogram()
+  ggplot(aes(x = p)) +
+  geom_histogram()
 ```
 
 
@@ -144,7 +161,10 @@ Hint: remember that the probability of an interval is area under the curve
 ```{r, echo=FALSE}
 # Enter new k & n values here:
 observed_data <- list(k = ..., n = ...) 
-runModel(myFirstModel, observed_data)
+runModel(myFirstModel, observed_data) %>%
+  ggplot(aes(x = p)) +
+  geom_histogram(binwidth = .025)
+
 ```
 
 
@@ -154,28 +174,40 @@ Hint: we used 10000 samples above
 
 ```{r}
 observed_data <- list(k = 5, n = 10) 
-runModel(myFirstModel, observed_data, numSamples = ...)
-
-observed_data <- list(k = 50, n = 100) 
-runModel(myFirstModel, observed_data, numSamples = ...)
+runModel(myFirstModel, observed_data, numSamples = ...) %>%
+  ggplot(aes(x = p)) +
+  geom_histogram(binwidth = .025)
 ```
 
+```{r}
+observed_data <- list(k = 50, n = 100) 
+runModel(myFirstModel, observed_data, numSamples = ...) %>%
+  ggplot(aes(x = p)) +
+  geom_histogram(binwidth = .025)
+```
 
 #3.1.5
 
 ```{r}
 observed_data <- list(k = ..., n = ...) 
-runModel(myFirstModel, observed_data)
+runModel(myFirstModel, observed_data) %>%
+  ggplot(aes(x = p)) +
+  geom_histogram(binwidth = .025)
+
 ```
 
 #3.1.6
 
 ```{r}
 observed_data <- list(k = ..., n = ...) 
-runModel(myFirstModel, observed_data)
+runModel(myFirstModel, observed_data) %>%
+  ggplot(aes(x = p)) +
+  geom_histogram(binwidth = .025)
 ```
   
 ### 3.2 Difference between two rates
+
+* Rejection may not be a good idea for this section -- takes forever*
 
 ```{r}
 # k1 = number of heads for coin 1
@@ -217,7 +249,8 @@ Run the model:
 ```{r}
 observed_data = list(k1 = 5, n1 = 10, k2 = 7, n2 = 10)
 runModel(differenceInWeightsModel, observed_data) %>%
-  ggs_histogram()
+  ggplot(aes(x = delta)) +
+  geom_histogram(binwidth = .025)
 ```
 
 # 3.2.1
@@ -227,7 +260,8 @@ Run with first set of params:
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(differenceInWeightsModel, observed_data) %>%
-  ggs_histogram()
+  ggplot(aes(x = delta)) +
+  geom_histogram(binwidth = .025)
 ```
 
 With second set of params:
@@ -235,7 +269,8 @@ With second set of params:
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(differenceInWeightsModel, observed_data) %>%
-  ggs_histogram()
+  ggplot(aes(x = delta)) +
+  geom_histogram(binwidth = .025)
 ```
 
 # 3.2.2
@@ -243,7 +278,8 @@ runModel(differenceInWeightsModel, observed_data) %>%
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(differenceInWeightsModel, observed_data) %>%
-  ggs_histogram() 
+  ggplot(aes(x = delta)) +
+  geom_histogram(binwidth = .025)
 ```
 
 # 3.2.3
@@ -285,8 +321,9 @@ Run the model, example:
 
 ```{r}
 observed_data = list(k1 = 5, n1 = 10, k2 = 7, n2 = 10)
-runModel(commonRateModel, observed_data) 
-  ggs_density() + xlim(0,1)
+runModel(commonRateModel, observed_data) %>%
+  ggplot(aes(x = p)) +
+  geom_density(binwidth = .025)
 ```
 
 # 3.3.1
@@ -294,7 +331,8 @@ runModel(commonRateModel, observed_data)
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(commonRateModel, observed_data) %>%
-  ggs_density() + xlim(0,1)
+  ggplot(aes(x = p)) +
+  geom_density(binwidth = .025)
 ```
 
 # 3.3.2
@@ -302,7 +340,8 @@ runModel(commonRateModel, observed_data) %>%
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(commonRateModel, observed_data) %>%
-  ggs_density() + xlim(0,1)
+  ggplot(aes(x = p)) +
+  geom_density(binwidth = .025)
 ```
 
 # 3.3.3
@@ -310,28 +349,30 @@ runModel(commonRateModel, observed_data) %>%
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(commonRateModel, observed_data) %>%
-  ggs_density() + xlim(0,1)
+  ggplot(aes(x = p)) +
+  geom_density(binwidth = .025)
 ```
 
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
 runModel(commonRateModel, observed_data) %>%
-  ggs_density() + xlim(0,1)
+  ggplot(aes(x = p)) +
+  geom_density(binwidth = .025)
 ```
 
 ### 3.4 Prior and posterior prediction
 
-** This example is broken due to issue #20 in rwebppl **
+** The binomial posterior is wonky because of bugs with binomial in webppl.**
+** fixed in commit fb740b4 **
 
 ```{r}
 firstModelWithPredictives <- '
 // Unpack data
-var k = observed_data["k"] // number of heads
-var n = observed_data["n"] // number of flips
-
+var k = observed_data["k"][0] // number of heads
+var n = observed_data["n"][0] // number of flips
 var model = function() {
-   var p = uniform( {a:0, b:1} )    // sample a coin weight from a uniform distribution
-   
+   var p = uniform( {a:0, b:1} )
+
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
@@ -343,16 +384,27 @@ var model = function() {
    return {prior: prior, 
            priorPredictive : priorPredictive,
            posterior : p,
-           posteriorPredictive : posteriorPredictive};
+           posteriorPredictive : posteriorPredictive
+          };
 }
 '
 ```
 
-
 ```{r}
 observed_data <- list(k = 1, n = 15)
-runModel(firstModelWithPredictives, observed_data) %>%
-  ggs_density()
+results <- runModel(firstModelWithPredictives, observed_data) 
+
+results %>%
+  select(prior, posterior) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, fill = distribution)) +
+  geom_density(alpha = .5)
+
+results %>%
+  select(priorPredictive, posteriorPredictive) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, group = distribution, color = distribution)) +
+  geom_bar(alpha = .5, position = "dodge")
 ```
 
 # 3.4.1
@@ -447,7 +499,7 @@ var model = function() {
 
 ### 3.5 Posterior Prediction
 
-** This example is also broken due to issue #20 in rwebppl **
+** Rejection sampling fails here **
 
 ```{r}
 commonRateModelWithPredictives <- '
@@ -472,17 +524,16 @@ var model = function() {
     data : k2,           // Observed k number of Heads
     link: Binomial( {p : p, n: n2 }) // assuming a Binomial distribution
   }) 
-  var posteriorPredictive = {k1 : sample(Binomial({p : p, n: n1})),
-                             k2 : sample(Binomial({p : p, n: n2}))}
+
   return {p : p,
-          posteriorPredictive : posteriorPredictive}
+          };
 }
 '
 ```
 
 ```{r}
 observed_data <- list(k1 = 0, n1 = 10, k2 = 10, n2 = 10)
-runModel(commonRateModelWithPredictives, observed_data)
+res <- runModel(commonRateModelWithPredictives, observed_data, numSamples = 1)
 ```
 
 
