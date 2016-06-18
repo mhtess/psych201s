@@ -1,0 +1,15 @@
+// gaussianProbability takes in a value x
+// returns the probability of that value under a gaussian with 
+// mean = 0 and stdev = 1
+  var gaussianProbability = function(x) { 
+  	return probability(x, Gaussian( {mu: 0, sigma:1 } ))
+  }
+
+// map takes in 2 arguments
+// first argument is a function
+// second argument is a list of values 
+// (each of these gets substituted for x in gaussianProbability)
+ map(
+  gaussianProbability, 
+  [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5] 
+ )
