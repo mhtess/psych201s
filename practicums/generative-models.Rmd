@@ -6,13 +6,13 @@ output: html_document
 ---
 
 R has built-in functions for sampling from distributions and looking up probabilities. 
-These kinds of distributions can encode our "prior beliefs" about the outcome of an experiment. 
-But we will want to update these beliefs with our observed data.
+As we will see, distributions can encode our "prior beliefs" about the outcome of an experiment; they can formalize our hypotheses.
+But we will want to update these beliefs after we observe data.
 For that, we won't be able to use just base R.
 
-We will switch to using WebPPL, which is what's called a *probabilistic programming language* (PPL). PPLs are languages for doing Bayesian inference. WebPPL is also also a *functional* programming language, so we will go over some basic ideas of functional programming here as well. Functional programming languages are everywhere: R is a functional language, JavaScript is too.
+We will switch to using WebPPL, which is what's called a *probabilistic programming language* (PPL). PPLs are languages for doing Bayesian inference (updating beliefs with data). WebPPL is also a *functional* programming language, so we will go over some basic ideas of functional programming here as well. Functional programming languages are everywhere: R is a functional language, JavaScript is too.
 
-We'll introduce WebPPL first with distributions (like we did in R).
+We'll introduce WebPPL first with distributions (like we did in R), and then build *generative models* that encode our hypotheses.
 A full list of distributions in WebPPL can be found [here](http://webppl.readthedocs.io/en/master/distributions.html)
 
 # Bernoulli distribution
@@ -169,6 +169,7 @@ You may think this is a nit-picky detail, and that we could make some discretiza
 Well, we could look up the probability for several (but not infinite) different values. 
 In WebPPL, Distributions come with this ability. We're going to use the function `probability` to look up the probability of a number under a `Gaussian` distribution.
 This function is not in the basic WebPPL language, but is in a package we've made for your convenience called `utils`.
+If you didn't clone the class repo to get this, you can download the folder `utils` from [here](http://web.stanford.edu/class/psych201s/psych201s/practicums/) and put in in the same folder as your practica.
 
 ```{r gauss.prob}
 webppl("
@@ -185,16 +186,19 @@ It returns to you a list of values after the function has been applied. (It's so
 
 Because we are passing actual values, we want to make a function that *takes in an argument* (as opposed to repeat, where we made a function with no arguments).
 
-```{r gauss.discretized}
-ourWebPPLprogram <- "
-  var gaussianProbability = function(x) { return probability(x, Gaussian( {mu: 0, sigma:1 } )) }
-  map(
-    gaussianProbability, // first argument is a function
-    [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5] // second argument is a list of values (each of these gets substituted for x in gaussianProbability)
-  )
-"
 
-discreteGaussian <- webppl(ourWebPPLprogram, packages = c("./utils"))
+It's worth noting that we can write our WebPPL program in a separte file, and call `webppl` on the file path. Let's try this.
+
+Download [this file](https://github.com/mhtess/psych201s/blob/master/practicums/webppl_models/discreteGaussian.wppl), and put it in a folder called `webppl_models` in the folder containing this practicum
+
+You can open that file using RStudio. Chances are: it will open as a Text File (you can tell in the bottom right corner of the editor window). You can change that to JavaScript, and it will highlight syntax for you. For complicated programs, this is incredibly helpful.
+(N.B.: JavaScript reallys want you to use ; at the end of lines. WebPPL doesn't really care, but the RStudio editor will show you a note next to the line if it doesn't have a ;)
+
+```{r gauss.discretized}
+discreteGaussian <- webppl(
+  program_file = "webppl_models/discreteGaussian.wppl", 
+  packages = c("./utils")
+  )
 
 print(discreteGaussian)
 
@@ -221,5 +225,150 @@ repeat(
   xlim(-5,5)
 ```
 
+# Generative models
+
+Using WebPPL, we've seen how to sample from distributions. This is the essence of a *generative model*: a model that generates (or samples) data (or, predicted data).
+
+Scientific hypotheses are a certain type of generative model.
+Let's begin to unpack that.
+Using WebPPL, we can **compose** samples from distributions, to form more complex distributions. 
+
+Let's make a model that first samples a Bernoulli (i.e., flips a coin). If the Bernoulli comes up `TRUE` (the coin comes up heads), we'll then sample from a Gaussian with mean = 1, stdev = 1. If the Bernoulli samples is `FALSE` (the coin lands tails), we'll sample from a Gaussian with mean = 0, stdev = 1.
+
+We're gonna have the program return the outcome of the coin flip and the outcome of the resulting Gaussian.
+
+To write `if...else` statements in WebPPL (and JavaScript), we're going to use the shorthand *? :* notation:
+`ifClause ? thenClause : elseClause`
+
+```{r}
+gaussianMixture <- "
+var gaussianMixture = function(){
+  var a = sample( Bernoulli({p:0.5}) );
+  var b = a ? 
+          sample( Gaussian( {mu: 1, sigma:1} )) :
+          sample( Gaussian( {mu: 0, sigma:1} ))
+  return {coin: a, outcome: b}
+}
+repeat(1000, gaussianMixture)
+"
+
+
+samples <- webppl(gaussianMixture)
+
+head(samples)
+```
+
+Notice that the labels we have our variables in the `return` object (i.e., **coin** and **outcome**) are now the headers our data.frame. It will be useful to record data like this (as an objects `{key: value}`, with informative names for `key`).
+
+Cool. Let's visualize this.
+
+```{r}
+ggplot(samples, aes(x = outcome, fill = coin))+
+  geom_histogram(position = position_dodge())
+```
+
+Do you understand what you are seeing? Can you explain it?
+
+
+Congratulations. You've just bascically set up a t-test. (Actually, this would be a z-test, but it's similar enough).
+
+What do I mean by that? Well, let's replace the labels `a` and `b` in our program with more informative labels.
+```{r}
+gaussianMixture <- "
+var gaussianMixture = function(){
+  var isEffect = sample( Bernoulli({p:0.5}) );
+  var data = isEffect ? 
+          sample( Gaussian( {mu: 1, sigma:1} )) :
+          sample( Gaussian( {mu: 0, sigma:1} ))
+  return {isEffect: isEffect, data: data}
+}
+repeat(1000, gaussianMixture)
+"
+samples <- webppl(gaussianMixture)
+
+ggplot(samples, aes(x = data, fill = isEffect))+
+  geom_histogram(position = position_dodge())
+```
+Exactly the same model just with different labels on the variables.
+This distribution (which is actually a 50 \ 50 mixture of 2 distributions) might encoded our prior beliefs about the data in an experiment we're about to run. If there is an effect, we are expecting the data to be normally distributed around 1. If there isn't an effect, we would expect the data to be noramlly distributed around 0.
+
+Technically, `isEffect` is a latent, or hidden, parameter. We can't actually observe it in the world. So, really we shouldn't look at it.
+
+```{r}
+ggplot(samples, aes(x = data))+
+  geom_histogram(binwidth = 0.15)
+```
+
+It's actually super hard to tell there are two disributions here without the color variable. Note the peak is not at 0, but it's at about 0.5, because if we don't know if there's an effect or not, the most likely thing is for the data to be somewhere in between the means of the two distributions. (Go back to the color plot and confirm that's the case. In the color plot, the distributions are **dodged**, so you have to add bars that are next to each other).
+
+This generative model (and the resulting **Predictive distribution**) encodes a hypothesis that either the data comes from a Gaussian with mean 0, or a Gaussian with mean 1. Next meeting, we will see how we can go from this *prior belief distribution* to a *posterior belief distrbution* after observing data.
+
+Let's consider one more case.
+
+Here we'll consider two possibilities again, and hence we'll start by flipping a coin (sampling a Bernoulli). If it lands on heads, we'll sample a coin weight from a Uniform distribution over [0, 1]. If it lands on tails, we will take the coin weight 0.5.
+
+Then, we'll flip that second coin (whatever the weight is).
+
+```{r}
+binomialMixture <- "
+var binomialMixture = function(){
+  var isEffect = sample( Bernoulli({p:0.5}) );
+  var trueEffect = isEffect ? 
+          sample( Uniform( {a: 0, b:1} )) :
+          0.5
+  var data = sample( Bernoulli( { p: trueEffect } ) );
+  return {isEffect: isEffect, trueEffect:trueEffect, data: data}
+}
+repeat(10000, binomialMixture)
+"
+
+samples <- webppl(binomialMixture)
+
+ggplot(samples, aes(x = as.numeric(data), fill = isEffect))+
+  geom_histogram(position = position_dodge())
+
+```
+
+It's interesting here that our two hypotheses (coin weight is 0.5; coin weight is sampled from a uniform) don't predict any different data.
+
+What does `trueEffect` look like?
+
+```{r}
+ggplot(samples, aes(x = trueEffect, fill = isEffect))+
+  geom_histogram(position = position_dodge())
+```
+
+Right, if there no effect, the trueEffect is 0.5.
+If there is an effect, then it could be anything between 0 and 1.
+
+This is the setup for a Binomial Test. 
+What we will want to know if we observe 75% heads, how much do we believe that there is an effect. That is for the next chapter.
+
+
+**Challenge problem**
+
+In the gaussianMixture model above, we assumed that if there was an effect, the data would come from a gaussian centered at 1. The more general case that we often do in a t-test is to say that the alternative hypothesis means that data is coming from a gaussian that's NOT centered at 0. (H_a: mu != 0... you may recall). Of course, we might not expect the alternative hypothsis to include certain values (our data might come from a scale that has upper and lower bounds; we might be talking about Reaction Times, in which case, negative numbers would be weird, as would numbers on the order of minutes...).
+
+Try to write a model where, when there is an effect, we sample a value for `mu` from a Gaussian centenred at 0 with a big stdev (like 10) [sort of like how we did for the binomialMixture]. Call this variable `trueMean`. When there is no effect, we'll set `trueMean` to be 0.
+
+```{r}
+gaussianMixture <- "
+var gaussianMixture = function(){
+  var isEffect = sample( Bernoulli({p:0.5}) );
+
+  var trueMean = isEffect ? ... :
+                            ...
+
+  var data = sample( Gaussian( {mu: trueMean, sigma:1} ))
+
+  return {isEffect: isEffect, trueMean: trueMean, data: data}
+}
+repeat(10000, gaussianMixture)
+"
+samples <- webppl(gaussianMixture)
+
+ggplot(samples, aes(x = data, fill = isEffect))+
+  geom_histogram(position = position_dodge())
+```
 
 
