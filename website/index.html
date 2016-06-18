@@ -26,7 +26,8 @@ This course is designed to engage with empirical data. Though we will often enga
 + Office hours (RXDH): Tues 2-4pm
 + Textbook: *Bayesian Cognitive Modeling: A Practice Course*, Lee & Wagenmakers (2014) [below, LW]. [Available online](http://ebooks.cambridge.org/ebook.jsf?bid=CBO9781139087759) through Cambridge University Press, via Stanford. We will also read some excerpts from *Introduction to Applied Bayesian Statistics and Estimation for Social Scientists* by Scott M. Lynch (2007) [below, Lynch].
 
-I encourage students to use Piazza for questions that are readily articulable. Piazza is a forum for questions & answers, and answers may be posed by both students and the instructor. I strongly encourage students to answer questions, and I will verify the solutions.
+
+**If you have a question during the quarter**, probably somebody else either currently has or has had the same question. Hence, go to [Piazza](http://piazza.com/stanford/summer2016/psych201s/), look for your question, ask your question! And get answers! Actually, it's a forum for the whole class. So you as well can post answers! (And it will give you bonus participation credit!) Your answers don't necessarily have to be right. We will verify whatever you post. It's basically just an extension of class discussion.
 
 [Piazza signup](http://piazza.com/stanford/summer2016/psych201s/)
 
@@ -39,7 +40,7 @@ By the end of the course, students will be able to:
 0. Feel comfortable with statistics, both with the analysis you already do and with understanding analyses in general
 1. Build Bayesian statistical models for simple and complex problems in your data using a probabilisitic programming language (e.g. [WebPPL](http://webppl.org), BUGS/[JAGS](http://mcmc-jags.sourceforge.net), [STAN](http://mc-stan.org))
 2. Interpret the various components of such a model in terms of your scientific hypotheses
-3. Relate the output of this model (spec. the posterior distribution) to more familiar, statistical tests (e.g. t-test, linear model) you may run 
+3. Relate this model to more familiar, statistical tests (e.g. t-test, linear model) you may run 
 4. Defend a particular model specification (priors, likelihood) in a way that other psychologists will understand
 5. Explain (3)-(5) in the context of a manuscript (ideally, a manuscript you are currently working on)
 
@@ -55,6 +56,8 @@ The goal of this course is to make you more comfortable with the basic strokes o
 
 You will tell the class about your project and analysis in a lightning talk (~ 5 min + Q&A) on 8/3. You will also write this up in an "analysis section" that could be included in a manuscript you plan to write up for your project (i.e., for peer reviewed publication; you do not need to write up a manuscript for this class). Be sure to take whatever feedback you may get during your lightning talk and incorporate it into your write-up.
 
+If you are taking this class Credit/No-credit, you are only required to do one of the above two assignments (lightning talk vs write-up).
+
 ### Course grade.
 
 + 25% in-class practicum participation 
@@ -69,22 +72,22 @@ Practica are linked to in the topic column.
 
 | Week 	| Date 	| Meta-topic 	| Topic / Practicum	| Readings / Home assignment 	|
 |------	|------	|------------	|-------	|----------------------------	|
-| 1    	| 6/20 	|Philosophy, probability, basic strokes| Course overview. What is probability? [Randomness in R.](https://github.com/mhtess/psych201s/blob/master/practicums/distributions.Rmd) | <ul><li>[Download JASP](https://jasp-stats.org/download/)</li><li>Watch tutorial on [Bayesian Binomial Test](https://www.youtube.com/watch?v=rchMvOGOW1k) and apply it to [this data set](https://github.com/mhtess/psych201s/blob/master/data/bbt.csv)</li><li>Lindley (1993). [The Analysis of Experimental Data: The Appreciation of Tea and Wine.](http://www2.isye.gatech.edu/~brani/isyebayes/bank/lindleybayeslady.pdf)</li></ul> |
-|      	| 6/22 	|            	|Probability distributions. [Randomness and basic functional programming in WebPPL.](https://github.com/mhtess/psych201s/blob/master/practicums/distributions-wppl.Rmd) | <ul><li>LW Ch. 1: Basics of Bayesian analysis: Read 1.1, 1.2, 1.3, 1.5; Attempt exercises in Section 1.1; Boxes 1.1, 1.2</li><li>Wagenmakers, Morey, Lee (in press). [Bayesian benefits for the pragmatic researcher.](https://osf.io/3tdh9/) *Current directions in Psychological Science*</li></ul> |
-| 2    	| 6/27 	| Basic Strokes: Bayesian Updating| [Bayes' Theorem.](https://github.com/mhtess/psych201s/blob/master/practicums/bayes-rule.Rmd) Thinking about forced-choice data as binomials. [LW3 practicum.](https://github.com/mhtess/psych201s/blob/master/practicums/ch3.Rmd)|<ul><li>LW Ch. 3: Inferences with Binomials</li></ul>|
-|      	| 6/29 	|            	| Thinking about continuous data. Confidence vs. Credibility. [LW4 Practicum](https://github.com/mhtess/psych201s/blob/master/practicums/ch4.Rmd)| <ul><li> LW Ch. 4: Inferences with Gaussians</li><li>Hoekstra, Morey, Rouder, Wagenmakers (2014). [Robust misinterpretation of confidence intervals.](http://www.ejwagenmakers.com/inpress/HoekstraEtAlPBR.pdf) *Psychonomic Bulletin & Review*</li></ul>|
+| 1    	| 6/20 	|Basic probability| Course overview. A brief history of probability. What is probability? [Distributions in R.](https://github.com/mhtess/psych201s/blob/master/practicums/distributions.Rmd) | <ul><li>[Download JASP](https://jasp-stats.org/download/)</li><li>Watch tutorial on [Bayesian Binomial Test](https://www.youtube.com/watch?v=rchMvOGOW1k) and apply it to [this data set](https://github.com/mhtess/psych201s/blob/master/data/bbt.csv)</li><li>Lindley (1993). [The Analysis of Experimental Data: The Appreciation of Tea and Wine.](http://www2.isye.gatech.edu/~brani/isyebayes/bank/lindleybayeslady.pdf)</li></ul> |
+|      	| 6/22 	|Generative models are hypotheses |Probability distributions. [Generative models and basic functional programming in WebPPL.](https://github.com/mhtess/psych201s/blob/master/practicums/distributions-wppl.Rmd) | <ul><li>[Chapter 1: Basics of Bayesian analysis](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A010&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo): Read p3-6; 11-12 (Boxes 1.1, 1.2) and [Box 3.2 (p40)](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A022&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo); Think through exercises on pg 5</li><li>Wagenmakers, Morey, Lee (in press). [Bayesian benefits for the pragmatic researcher.](https://osf.io/3tdh9/) *Current directions in Psychological Science*</li></ul> |
+| 2    	| 6/27 	| Updating beliefs with data| [Bayes' Theorem.](https://github.com/mhtess/psych201s/blob/master/practicums/bayes-rule.Rmd) Thinking about forced-choice data as binomials. [Inferences with Binomials practicum.](https://github.com/mhtess/psych201s/blob/master/practicums/ch3.Rmd)|<ul><li>[Chapter 3: Inferences with Binomials](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A022&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li></ul>|
+|      	| 6/29 	|            	| Thinking about continuous data. Confidence vs. Credibility. [Inferences with Gaussians Practicum](https://github.com/mhtess/psych201s/blob/master/practicums/ch4.Rmd)| <ul><li> [Chapter 4: Inferences with Gaussians](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A029&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo) </li><li>Hoekstra, Morey, Rouder, Wagenmakers (2014). [Robust misinterpretation of confidence intervals.](http://www.ejwagenmakers.com/inpress/HoekstraEtAlPBR.pdf) *Psychonomic Bulletin & Review*</li></ul>|
 | 3    	| 7/4  	|| ---NO CLASS--- |-----Independence day----|
-|      	| 7/6  	|Some new shapes: Latent-mixtures | Individual differences, malingering | <ul><li>LW Ch. 6: Latent Mixture Models</li></ul>|
-| 4    	| 7/11 	| Hypothesis testing is model comparison| |<ul><li>LW Ch. 7: Bayesian model comparison</li><li>LW Ch. 8: Comparing Gaussian means</li></ul>|
-|      	| 7/13 	|            	|       	|<ul><li>LW Ch. 9: Comparing binomial rates</li><li>Wetzels et al. (2011) [Statistical Evidence in Experimental Psychology](http://www.ejwagenmakers.com/2011/WetzelsEtAl2011_855.pdf). *Perspectives on Psychological Science*</li></ul>|
+|      	| 7/6  	| Building interesting models | Individual differences, malingering/contamination, missing data | <ul><li>[Chapter 6: Latent Mixture Models](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A040&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li></ul>|
+| 4    	| 7/11 	| Hypothesis testing is model comparison| |<ul><li> [Chapter 7: Bayesian model comparison](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A049&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li><li>[Chapter 8: Comparing Gaussian means](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A057&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li></ul>|
+|      	| 7/13 	|            	|       	|<ul><li>[Chapter 9: Comparing binomial probabilities](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A061&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li><li>Wetzels et al. (2011) [Statistical Evidence in Experimental Psychology](http://www.ejwagenmakers.com/2011/WetzelsEtAl2011_855.pdf). *Perspectives on Psychological Science*</li></ul>|
 | 5    	| 7/18 	| There be dragons |"Bayesian frequentism" (t-tests, lm) |<ul><li>Something on the bayesian t-test</li><li>Wagenmakers et al. (2015). [A power fallacy.](http://www.ejwagenmakers.com/2015/WagenmakersEtAlAPowerFallacy2015.pdf)</li></ul>|
 |      	| 7/20 	|            	|Feeling the future (Bem, 2011)|<ul><li>Wagenmakers et al. (2011) *Comment on Bem (2011)*)</li><li>Bem et al. (2011). *Reply to comment*</li><li>Wagenmakers et al. (2011) *Comment on reply to comment*</li></ul>|
-| 6    	| 7/25  	| |More ESP and catch-up |<ul><li>LW Ch. 13</li></ul> |
+| 6    	| 7/25  	| |More ESP and catch-up |<ul><li>[Chapter 13: Extrasensory Perception](http://ebooks.cambridge.org/pdf_viewer.jsf?cid=CBO9781139087759A079&ref=false&pubCode=CUP&urlPrefix=cambridge&productCode=cbo)</li></ul> |
 |      	| 7/27 	|            	|       	|<ul><li>TBD</li></ul>|
-| 7    	| 8/1 	|Catch-up and a fun application|TBD: Tentatively, Number Concept Development (other options: Memory, SDT, Psychophysics)|<ul><li>LW Ch. 19</li></ul>|
-|      	| 8/3  	|            	|Class presentations (bring your bayes to school day)||
+| 7    	| 8/1 	|Catch-up and an introduction to Bayesian Cognitive Modeling | (other options: Number Concept Development, Memory, SDT, Psychophysics)| |
+|      	| 8/3  	|            	|Lightning talks (bring your bayes to school day)||
 | 8    	| 8/8  	|Closing thoughts |       	|<ul><li>Scheibehenne, Jamil, Wagenmakers (in press). [Bayesian evidence synthesis can reconcile seemingly inconsistent results: The case of hotel towel reuse.](https://osf.io/nptv8/) *Psychological Science*</li></ul>|
-|      	| 8/10 	|            	|---NO CLASS--- | ---CogSci conference---|
+|      	| 8/10 	|            	|  |  | |
 
 
 
