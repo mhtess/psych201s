@@ -11,14 +11,15 @@ library(dplyr)
 library(ggplot2)
 ```
 
-A fundamental concept in probability and statistics is that of a probability distribution.
-There are different kinds of distributions, called "families", corresponding to different "random processes". 
+A fundamental concept in probability and statistics is that of a probability distribution. A probability distribution describes *random outcomes*. A probability distribution is the theoretical counterpart to a frequency distribution. A frequency distribution shows how many times an outcome has occurred. A probability distribution shows how many times it *should have occurred* (we will unpack what *should have occurred* means next class).
 
-We'll consider a few here and explore them using what comes with R.
+It turns out, *randomness* has some commonly recurring motifs. These common motifs correspond to different kinds of distributions, sometimes grouped into "families" of distributions.
+
+We'll consider a few here and explore them using what comes standard with R.
 
 There are 4 functions in R you can use to access prabability distributions.
 
-We're going to be through them through visualization, using the Bernoulli and the Binomial distributions.
+We're going to be through them through visualization, using the Bernoulli and the Binomial distributions. Then we'll explore other distributions.
 
 # Bernoulli distribution
 
