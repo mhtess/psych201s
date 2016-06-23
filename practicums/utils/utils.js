@@ -2,7 +2,7 @@ function isNumeric(num){
   return !isNaN(num);
 };
 
-function wpParseFloat(x){
+function parseFloat(x){
   return parseFloat(x);
 };
 
@@ -14,9 +14,8 @@ function fillArray(value, len) {
   return arr;
 };
 
-
 module.exports = {
-  wpParseFloat: wpParseFloat,
+  parseFloat: parseFloat,
   isNumeric: isNumeric,
   fillArray: fillArray
 };
