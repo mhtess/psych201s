@@ -5,11 +5,18 @@ date: "June 14, 2016"
 output: html_document
 ---
 
-In this tutorial, we're going to walk through how to get from a prior belief distribution to a posterior belief distribution through the process of observing data.
-
 ```{r}
 library(rwebppl)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
 ```
+
+The major advancement introduced by the Reverand Thomas Bayes was the ability to do **inverse inference**: to use *observable* (or observed) data to learn about *unobservable* quantities (e.g., the true population mean). The basic recipe is to start with **prior beliefs** and to state explicitly how these beliefs map to observable data. (This second part is called the **likelihood**, and is something both frequentists and Bayesians agree upon. Frequentists just don't believe in prior beliefs.) The functional reason to accept priors is because we would like to say something about the **posterior beliefs**, that is, after observing this data, what is the probability of my hypothesis?
+
+In this tutorial, we're going to walk through how to get from a prior belief distribution to a posterior belief distribution through the process of observing data.
+
+We'll start with the most canonical prior belief distribution: a uniform distribution over the numbers 0 and 1 (oft interpreted as the weight of a coin, or the true population proportion of doing X in my experiment).
 
 ```{r}
 myPrior <- "
@@ -20,18 +27,22 @@ var prior = function(){
 repeat(10000, prior)
 "
 
-webppl(myPrior) %>% qplot()
+samples <- webppl(myPrior) ## run webppl
+
+head(samples) ## print out the first few samples
+
+qplot(samples) ## make histogram of samples
 ```
 
-Looks pretty uniform. Now let's imagine these are our prior beliefs over the proportion of subjects who will behave prosocially in our experiment (for example, in the experimental condition).
+Looks pretty uniform (the endpoints are lower because of binning). Now let's imagine these are our prior beliefs over the true population proportion of subjects who will behave prosocially in our experiment (for example, in the experimental condition).
 
-Now we observe 15 out of 20 subjects behave prosocially. That is our data. How can we incorporate this evidence into our beliefs? How do we go from a prior belief distribution to a posterior belief distribution? That is, how do we *update* our beliefs in light of this evidence?
+Now, suppose we observe 15 out of 20 subjects behave prosocially. That is our data. How can we incorporate this evidence into our beliefs about the true population mean? How do we go from a prior belief distribution to a posterior belief distribution? That is, how do we *update* our beliefs in light of this evidence?
 
 Bayes' Theorem is the mathematically correct way of doing this. But rather than do the math, can we program something to do it for us?
 
-We need to be a tiny bit more specific. In particular, we need to have a *linking function* that maps from our prior beliefs to observed data. (Here, we need something that goes from `p` -- a coin weight -- to some number of observed outcomes, i.e., the number of times the coin came up heads, or number of people who behaved prosocially.)
+Well, we need to specify one more thing: *the likelihood*. In Psychology, this also goes under the name of a *linking function*, or *generative model of the data*: it's something that maps our prior beliefs to observed data. (Here, we need something that goes from `p` -- a coin weight -- to observed outcomes, i.e., the number of heads, or number of participants who behaved prosocially.)
 
-The `Binomial` distribution is such a linking function. It is a mapping from a coin weight to the number of heads.
+The `Binomial` distribution is such a linking function. It is a mapping from a coin weight (and some number of flips) to the number of heads.
 
 ```{r}
 priorPredictive <- "
@@ -43,15 +54,18 @@ var priorPredictive = function(){
 repeat(10000, priorPredictive)
 "
 
-webppl(priorPredictive) %>% qplot(binwidth = 1)
+samples <- webppl(priorPredictive)  ## run webppl
+
+head(samples) ## look at first few samples
+
+qplot(samples, binwidth = 1) ## make histogram of samples
 ```
 
-We still have a uniform distribution, but note that this now over the numbers of heads, so the x-axis goes from 0 - 20. That tells us that, when we don't know the weight of the coin, any numbers of heads is equally likely (in addition to all values of the weight of the coin being equally likely). This distribution is called the *prior predictive* distribution, because it shows what data our model predicts, before it has seen any data.
+We still have a uniform distribution, but note that this now over the numbers of heads, so the x-axis goes from 0 - 20. That tells us that, a priori, we are assuming nothing about the numbers of heads that we'll observe (or the number of participants that are going to behave prosocially in our experiment). This is called an *uninformative prior* (or, ignorance prior)... it doesn't bias our posterior distribution one way or another. This distribution is called the *prior predictive* distribution, because it shows what data our model predicts, before it has seen any data.
 
-Here we see that our hypothesis (i.e. our model) is not very specific. It can predict any data. In your head, try to imagine what the prior predictive distribution looks like for the usual null hypothesis: that the coin weight is 0.5. Then, go and change `p` to be 0.5 (instead of sampling it from a uniform).
+We can think of this model as our hypothesis, and it is a vague hypothesis. (It corresponds to the standard alterantive hypothesis: p!=0.5) It plausibly predicts any data. (However, when later in the course discuss "model comparison", which is the same thing as hypothesis testing, we will see that this hypothesis is penalized for being vague compared to the null hypotehsis.) In your head, try to imagine what the prior predictive distribution looks like for the usual null hypothesis: that the coin weight is 0.5. Then, go and change `p` to be 0.5 (instead of sampling it from a uniform).
+
 Is it uniform? Why or why not?
-
-Later in this course, we will talk about comparing models (e.g., the null model vs. this model) as the Bayesian way of doing hypothesis testing. But that is for later.
 
 So now we're ready to integrate in our data.
 The generative way of doing this is to say: 
