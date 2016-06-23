@@ -1,9 +1,3 @@
-var present = require('present');
-
-function getTime(){
-  return present()
-};
-
 function isNumeric(num){
   return !isNaN(num);
 };
@@ -24,6 +18,5 @@ function fillArray(value, len) {
 module.exports = {
   wpParseFloat: wpParseFloat,
   isNumeric: isNumeric,
-  getTime:getTime,
   fillArray: fillArray
 };
