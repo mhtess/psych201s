@@ -17,5 +17,7 @@ Everything has been tested on Mac and Linux. If you are using Windows, contact t
 + [R Data Wrangling cheatsheet](http://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
 + [R ggplot2 visualization cheatsheet](http://www.rstudio.com/wp-content/uploads/2015/12/ggplot2-cheatsheet-2.0.pdf)
 + [Intro to WebPPL language](http://dippl.org/chapters/02-webppl.html)
-+ [WebPPL documentation](http://webppl.readthedocs.io/en/master/)
++ [WebPPL documentation: Distributions](http://webppl.readthedocs.io/en/master/distributions.html)
++ [WebPPL documentation: Array functions](http://webppl.readthedocs.io/en/master/arrays.html)
++ [WebPPL documentation: Other functions](http://webppl.readthedocs.io/en/master/header.html)
 + [ggplot2 book Ed.2](https://www.dropbox.com/s/0lap7tr7zoryyjk/ggplot2-book.pdf?dl=0), with stuff on tidyr, dplyr
