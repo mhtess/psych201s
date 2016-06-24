@@ -104,10 +104,15 @@ qplot(posterior.Without.NAs)
 
 Whoa, that's pretty interesting.  So the coin weights that are most likely to give rise to our data (15 out of 20 heads) are somewhere around 0.75. This is our first posterior distribution! It repesents our beliefs about  the true population proportion of heads, given our data (and our prior beliefs, which here, were uniform across all possibilities). 
 
-
 Walk yourself back through `sampleFromPosterior` function. 
 
 What is happening at each line? 
+
+...
+
+There are several  intellectual advantage of Bayesian methods over e.g., the p-value is that Bayesian methods take into account *only the data you have observed*, whereas the calculuation of the p-value includes *hypothetical data that you didn't observe* (notably, data more extreme than the data you observed).
+
+What line of the `sampleFromPosterior` function tells you we are only taking into account the data we observed? Why?
 
 
 We can ask things like: Between what 2 numbers are we 95% sure the true proportion lies? This is what's called a *credible interval*. (Note that credible intervals carry a different interpretation than that assigned to traditional confidence intervals. Confidence intervals have a substantially more complicated interpretation, which are about the *procedure of generating a confidence interval*, not about the true population mean. We will discuss the differences more fully later in this course.)
