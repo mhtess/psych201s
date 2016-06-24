@@ -68,23 +68,23 @@ We can think of this model as our hypothesis, and it is a vague hypothesis. (It 
 Is it uniform? Why or why not?
 
 So now we're ready to integrate in our data.
-The generative way of doing this is to say: 
+One very simple way of doing this is to say: 
 
 1. Sample a coin weight from our prior `sample(Uniform({a:0,b:1}))`
-2. Sample an outcome, given that coin weight `sample(Binomial( {n:20, p: p} ))`
-3a. If our outcome is the same as our data, keep the coin weight.
-3b. If the outcomes is different from our data, throw away the coin weight.
+2. Make a prediction (i.e., sample an outcome), given that coin `sample(Binomial( {n:20, p: p} ))` 
+3a. If our prediction matches our data, keep the coin.
+3b. If our prediction doesn't match our data, throw away the coin.
 
-In principle, any coin weight that's not 0 **could** give rise to our data (with a coin weighted 0.2, it could produce 15 / 20 heads, though it is unlikely). It turns out, if you repeat this procedure many times, then this is a method to compute the posterior distribution. It is called [Rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling).
+In principle, any coin weight that's not exactly 0 **could** give rise to our data (with a coin weighted 0.2, it could produce 15 / 20 heads, though it is unlikely). It turns out, if you repeat this procedure many times, then you end up with the correct posterior distribution on coin weights. It is called [Rejection sampling](https://en.wikipedia.org/wiki/Rejection_sampling).
 
 So,
 4. Repeat many times
 
-This is what's called *Bayesian inference* (going from a prior belief distribution to a posterior belief distribution).
+This is an algorithm for doing *Bayesian inference* (going from a prior belief distribution to a posterior belief distribution).
 
 How could we write this in WebPPL?
 
-Instead of always returning `p`, let's only return `p` when `outcome==15`.That is, only return the coin weights that plausibly give rise to our data. We will do this with a simple `if` statement. In JavaScript / WebPPL, you can do a shorthand `if .. else` statement using `? .. : .. `. We will use the `?` syntax throughout the course.
+Instead of always returning `p`, let's only return `p` when `outcome==15`.That is, only return the coin weights predict our data. We will do this with a simple `if` statement. In JavaScript / WebPPL, you can do a shorthand `if .. else` statement using `? .. : .. `. We will use the `?` syntax throughout the course.
 
 ```{r}
 myPosterior <- "
@@ -95,16 +95,22 @@ var sampleFromPosterior = function(){
 }
 repeat(100000, sampleFromPosterior)
 "
-posterior <-webppl(myPosterior) 
+posterior <- webppl(myPosterior) 
 
-posterior.Without.NAs <- posterior[!is.na(posterior)] # remove all the NA's
+posterior.Without.NAs <- posterior[!is.na(posterior)] ## remove all the NAs
 
 qplot(posterior.Without.NAs)
 ```
 
-Whoa, that's pretty interesting.  So the coin weights that are most likely to give rise to our data (15 out of 20 heads) are somewhere around 0.75. This is our first posterior distribution! It repesents the probabilies of the true population proportion of heads, given our data (and our prior beliefs, which here, were uniform across all possibilities). 
+Whoa, that's pretty interesting.  So the coin weights that are most likely to give rise to our data (15 out of 20 heads) are somewhere around 0.75. This is our first posterior distribution! It repesents our beliefs about  the true population proportion of heads, given our data (and our prior beliefs, which here, were uniform across all possibilities). 
 
-We can ask things like: Between what 2 numbers are we 95% sure the true proportion lies? This is what's called a *credible interval*. (Note that credible intervals carry a different interpretation than that assigned to traditional confidence intervals. Confidence intervals have a substantially more complicated interpretation. We will discuss the differences more fully later in this course.)
+
+Walk yourself back through `sampleFromPosterior` function. 
+
+What is happening at each line? 
+
+
+We can ask things like: Between what 2 numbers are we 95% sure the true proportion lies? This is what's called a *credible interval*. (Note that credible intervals carry a different interpretation than that assigned to traditional confidence intervals. Confidence intervals have a substantially more complicated interpretation, which are about the *procedure of generating a confidence interval*, not about the true population mean. We will discuss the differences more fully later in this course.)
 
 Now that we have the posterior distrbution, we can simply draw some lines in it: Let's look at the points at which 2.5% of the posterior probability mass is to the left and 2.5% of the probability mass is to the right, as well as the point at which 50% of the distribution is to the left and 50% is to the right (i.e., the median).
 
@@ -116,9 +122,9 @@ There are other questions you can ask about the posterior, some of which are hig
 
 To conclude this tutorial, I just want to tell you that doing this Bayesian inference trick (the 4 steps outlined above) is common to all of Bayesian analyses. It is the mathematically correct way to use the data you have observed to go from prior beliefs to posterior beliefs.
 
-Because we do it so often, it would be useful if there just a simple `observe` function, that took in our data and our linking function (here, the `Binomial`), and returned to us the posterior distribution. 
+Because we do it so often, languages like WebPPL have built-in ways to `observe` data. All you need to do is specify the prior, and the likelihood (or linking function; here, the `Binomial`). We then tell the language to do Bayesian inference, and it will return to us a posterior distribution.
 
-Indeed:
+Here is how it looks.
 
 ```{r}
 myPosterior <- "
@@ -137,19 +143,53 @@ posterior <- webppl(
 )
 ```
 
-This model will do exactly the same thing as above. The only difference is that we've abstracted the `repeat(10000,..)` and the if `?` statement away. We also no longer are generating the `outcome` variable explicitly. 
+This model will do exactly the same thing we did before. The only difference is that we've abstracted the if `?` statement and the  `repeat(10000,..)`away. We also no longer are explicitly generating the `outcome` variable. 
 
-In their place, we're calling a function called `observe`, which we're giving our `data: 15` and how we would generate the data (our linking funciton) `link: Binomial(...)`. We then ask the model to `return p`.
+Instead, we're calling a function called `observe`, which we're giving our `data: 15` and how we would generate the data (i.e, the linking function from our prior beliefs to the data) `link: Binomial(...)`. We then ask the model to `return p`.
 
-This abstraction is very useful, and we will use it throughout the course. We use the `inference_opts` in the `webppl` call to tell it to do Rejection Sampling with 10000 samples. We also tell it to do Rejection sampling on `ourModel` using the `model_var` function.
+This abstraction is very useful, and one of the main reasons for developing languages like WebPPL. With our R call to `webppl`, we use the `inference_opts` argument to tell it to do Rejection Sampling with 10000 samples. We also tell it to do it on `ourModel` using the `model_var` argument.
 
 The `observe` function is a helper function that we've written; we are accessing it through the package `utils`, which is also included in the webppl program call. 
 
-Finally, we've told webppl we want the ouput format in `"samples"` (the default is for a probability table, which we saw in `distributions-wppl.Rmd`). Since we only have one column, we can pass it to `qplot` and hope that it does the right thing.
+Finally, we've told webppl we want the ouput format in `"samples"` (the default is for a probability table, which we saw in `generative-models.Rmd`). Since we have samples, we can make a histogram.
 
 ```{r}
 head(posterior)
 
 
-qplot(posterior)
+ggplot(posterior, aes(x = support)) + 
+  geom_histogram()
 ```
+
+Using the same model, change `n` to some different values. (Try 15, 30, 100). 
+
+```{r}
+myPosterior <- "
+var ourModel = function(){
+  var p = sample(Uniform({a:0, b:1}))
+  observe({ data : 15,  link : Binomial( {n: ... , p: p} ) })
+  return p
+}
+"
+
+posterior <- webppl(
+  program_code = myPosterior,
+  model_var = "ourModel",
+  inference_opts = list(method = "rejection", samples = 10000),
+  packages = c("./utils"),
+  output_format = "samples"
+)
+
+
+ggplot(posterior, aes(x = support)) + 
+  geom_histogram()
+
+```
+
+What is happening to the posterior in each case? 
+
+
+Why?
+
+
+
