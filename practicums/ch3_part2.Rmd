@@ -227,8 +227,6 @@ results %>%
 
 ### 3.5 Posterior Prediction
 
-** Rejection sampling fails here **
-
 ```{r}
 commonRateModelWithPredictives <- '
 // Unpack data
@@ -253,17 +251,38 @@ var model = function() {
     link: Binomial( {p : p, n: n2 }) // assuming a Binomial distribution
   }) 
 
-  return {p : p,
-          };
+  var prior = uniform( {a:0, b:1} )
+  var priorPredictive1 = binomial({p : prior, n : n1})
+  var priorPredictive2 = binomial({p : prior, n : n2})
+  var posteriorPredictive1 = binomial({p : p, n : n1})
+  var posteriorPredictive2 = binomial({p : p, n : n2})
+
+  return {prior: prior,
+          priorPredictive1: priorPredictive1,
+          priorPredictive2: priorPredictive2,
+          posterior : p,
+          posteriorPredictive1: posteriorPredictive1,
+          posteriorPredictive2: posteriorPredictive2
+  };
 }
 '
-```
 
-```{r}
 observed_data <- list(k1 = 0, n1 = 10, k2 = 10, n2 = 10)
-res <- runModel(commonRateModelWithPredictives, observed_data, numSamples = 1)
-```
+results <- runModelMCMC(commonRateModelWithPredictives, observed_data)
 
+results %>%
+  select(prior, posterior) %>% 
+  gather(distribution, value) %>% 
+  ggplot(aes(x = value, group=distribution, fill = distribution)) +
+  geom_density(alpha = .5) +
+  xlim(0,1)
+
+results %>%
+  select(posteriorPredictive1, posteriorPredictive2) %>%
+  ggplot(aes(x = posteriorPredictive1, y=posteriorPredictive2)) +
+  geom_density_2d() +
+  theme_bw()
+```
 
 # 3.5.1
 
