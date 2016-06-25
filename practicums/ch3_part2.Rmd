@@ -5,10 +5,32 @@ date: "June 23, 2016"
 output: html_document
 ---
 
-### 3.4 Prior and posterior prediction
+### setup
 
-** The binomial posterior is wonky because of bugs with binomial in webppl.**
-** fixed in commit fb740b4 **
+```{r}
+setwd("~/Repos/psych201s/practicums/")
+library(rwebppl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+runModelMCMC <- function(model, data_to_webppl, 
+                         numSamples = 50000) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", 
+       inference_opts = list(method="MCMC", 
+                            samples = numSamples, 
+                            burn = numSamples/2,
+                            verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+```
+
+### 3.4 Prior and posterior prediction
 
 ```{r}
 firstModelWithPredictives <- '
@@ -37,48 +59,47 @@ var model = function() {
 
 ```{r}
 observed_data <- list(k = 1, n = 15)
-results <- runModel32(firstModelWithPredictives, observed_data) 
+results <- runModelMCMC(firstModelWithPredictives, observed_data) 
 
 head(results) ## what does the data look like
 
 results %>%
   select(prior, posterior) %>% # grab only prior and posterior columns
   gather(distribution, value) %>% # flatten them into a key and value column see http://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf for details on select/gather
-  ggplot(aes(x = value, fill = distribution)) +
-  geom_histogram()
-
-
-
+  ggplot(aes(x = value, group=distribution, fill = distribution)) +
   geom_density(alpha = .5)
 
 results %>%
   select(priorPredictive, posteriorPredictive) %>%
   gather(distribution, value) %>%
-  ggplot(aes(x = value, group = distribution, color = distribution)) +
-  geom_bar(alpha = .5, position = "dodge")
+  ggplot(aes(x = value, fill=distribution, 
+             color = distribution)) +
+  geom_bar(alpha = .5, position = 'identity')
 ```
 
 # 3.4.1
 
+Make sure you understand the prior, posterior, prior predictive, and posterior predictive distributions, and how they relate to each other (e.g., why is the top panel of Figure 3.9 a line plot, while the bottom panel is a bar graph?). Understanding these ideas is a key to understanding Bayesian analysis. Check your understanding by trying other data sets, varying both k and n.
 
 # 3.4.2
+
+Try different priors on $\theta$, by changing $\theta \sim$ Beta(1, 1) to $\theta \sim$ Beta(10,10), Beta(1,5) and Beta(0.1,0.1). Use the figures produced to understand the assumptions these priors capture, and how they interact with the same data to produce posterior inferences and predictions.
 
 ```{r}
 newPriorModel <- '
 // Unpack data
-var k = observed_data["k"] // number of heads
-var n = observed_data["n"] // number of flips
-
+var k = observed_data["k"][0] // number of heads
+var n = observed_data["n"][0] // number of flips
 var model = function() {
-   var p = beta({a : ..., b : ...})  // TRY NEW PRIOR HERE
-   
+  var priorDist = Beta({a : 1, b : 1})
+   var p = sample(priorDist)  // TRY NEW PRIOR HERE
    observe({
       data : k,           // Observed k number of Heads
       link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
    }) 
-
+  
    var posteriorPredictive = sample(Binomial({p : p, n: n}))
-   var prior = uniform({ a: 0, b: 1});
+   var prior = sample(priorDist);
    var priorPredictive = sample(Binomial({p : prior, n: n}))
    return {prior: prior, 
            priorPredictive : priorPredictive,
@@ -86,16 +107,36 @@ var model = function() {
            posteriorPredictive : posteriorPredictive};
 }
 '
+observed_data <- list(k = 1, n = 15)
+results <- runModelMCMC(newPriorModel, observed_data, numSamples = 100000) 
+
+head(results) ## what does the data look like
+
+results %>%
+  select(prior, posterior) %>% 
+  gather(distribution, value) %>% 
+  ggplot(aes(x = value, group=distribution, fill = distribution)) +
+  geom_density(alpha = .5) +
+  xlim(0,1)
+
+results %>%
+  select(priorPredictive, posteriorPredictive) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, fill=distribution,
+             color = distribution)) +
+  geom_bar(alpha = .5, position = 'identity')
 ```
 
 # 3.4.3
+
+Predictive distributions are not restricted to exactly the same experiment as the observed data, and can be used in the context of any experiment where the inferred model parameters make predictions. In the current simple binomial setting, for example, predictive distributions could be found by an experiment that is different because it has n' != n observations. Change the graphical model and R code to implement this more general case
 
 ```{r}
 newPredictiveModel <- '
 // Unpack data
 var k = observed_data["k"] 
 var n = observed_data["n"] 
-var n_prime = ... // ENTER NEW N_PRIME FOR PREDICTIVES
+var n_prime = 50// ENTER NEW N_PRIME FOR PREDICTIVES
 
 var model = function() {
    var p = beta({a : 1, b : 1})  
@@ -107,27 +148,44 @@ var model = function() {
 
    // AFTER LEARNING ABOUT P, WE CAN MAKE PREDICTIONS FOR N_PRIME
    var posteriorPredictive = sample(Binomial({p : p, n: n_prime }))
-   var prior = uniform({ a: 0, b: 1});
-   var priorPredictive = sample(Binomial({p : prior, n: n}))
+   var prior = beta({ a: 1, b: 1});
+   var priorPredictive = sample(Binomial({p : prior, n: n_prime }))
    return {prior: prior, 
            priorPredictive : priorPredictive,
            posterior : p,
            posteriorPredictive : posteriorPredictive};
 }
 '
+
+observed_data <- list(k = 1, n = 15)
+results <- runModelMCMC(newPredictiveModel, observed_data, numSamples = 100000) 
+
+head(results) ## what does the data look like
+
+results %>%
+  select(prior, posterior) %>% 
+  gather(distribution, value) %>% 
+  ggplot(aes(x = value, group=distribution, fill = distribution)) +
+  geom_density(alpha = .5) +
+  xlim(0,1)
+
+results %>%
+  select(priorPredictive, posteriorPredictive) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, fill=distribution,
+             color = distribution)) +
+  geom_bar(alpha = .5, position = 'identity')
 ```
 
 # 3.4.4
 
+In October 2009, the Dutch newspaper Trouw reported on research conducted by H. Trompetter, a student from the Radboud University in the city of Nijmegen. For her undergraduate thesis, Trompetter had interviewed 121 older adults living in nursing homes. Out of these 121 older adults, 24 (about 20%) indicated that they had at some point been bullied by their fellow residents. Trompetter rejected the suggestion that her study may have been too small to draw reliable conclusions: “If I had talked to more people, the result would have changed by one or two percent at the most.” Is Trompetter correct? Change the values for k and n, to find the prior and posterior predictive for the relevant rate parameter and bullying counts. Based on these distributions, do you agree with Trompetter’s claims?
+
 ```{r}
 TrompetterModel <- '
-// Original data
+// Trompetter data
 var k = 24
 var n = 121
-
-// Uncomment to try your own data!
-// var k = observed_data["k"] 
-// var n = observed_data["n"] 
 
 var model = function() {
    var p = beta({a : 1, b : 1})  
@@ -138,7 +196,7 @@ var model = function() {
    }) 
 
    var posteriorPredictive = sample(Binomial({p : p, n: n}))
-   var prior = uniform({ a: 0, b: 1});
+   var prior = beta({ a: 1, b: 1});
    var priorPredictive = sample(Binomial({p : prior, n: n}))
    return {prior: prior, 
            priorPredictive : priorPredictive,
@@ -146,6 +204,25 @@ var model = function() {
            posteriorPredictive : posteriorPredictive};
 }
 '
+
+observed_data <- list(k = 1, n = 15)
+results <- runModelMCMC(TrompetterModel, observed_data, numSamples = 100000) 
+
+head(results) ## what does the data look like
+
+results %>%
+  select(prior, posterior) %>% 
+  gather(distribution, value) %>% 
+  ggplot(aes(x = value, group=distribution, fill = distribution)) +
+  geom_density(alpha = .5) +
+  xlim(0,1)
+
+results %>%
+  select(priorPredictive, posteriorPredictive) %>%
+  gather(distribution, value) %>%
+  ggplot(aes(x = value, fill=distribution,
+             color = distribution)) +
+  geom_bar(alpha = .5, position = 'identity')
 ```
 
 ### 3.5 Posterior Prediction
