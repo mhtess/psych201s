@@ -8,28 +8,28 @@ output: html_document
 This chapter is concerned with inferring the parameters of a Gaussian distribution. 
 
 ```{r 4.1.1a}
+library(rwebppl)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 
-setwd("~/Repos/webppl-bcm/")
+getwd() # check working directory
+setwd(...) # change working directory if need be
 
-# clears workspace:  
-rm(list=ls()) 
+rm(list=ls()) # clear workspace
 ```
 
 # 4.1 Inferring a mean and standard deviation
 
 ```{r}
 model41 <- '
-var data = observed_data
-
 var model = function() {
-  var mu = gaussian(0,1/Math.sqrt(0.001)) 
-  var sigma = uniform(0, 10)
+
+  var mu = sample(Gaussian({mu: 0, sigma: 30}));
+  var sigma = sample(Uniform({a:0, b:10}));
 
   observe({
-    data: data,
+    data: observed_data,
     link: Gaussian({mu: mu, sigma: sigma})
   })
 
@@ -47,46 +47,51 @@ Some suggestions:
 (3) uniformly generated data (HINT: use `data <- 1.5 * runif(30)`)
 
 ```{r}
-dataToUse <- # 5 + 2 * rnorm(4)
+dataToUse <- 5 + 2 * rnorm(4)
+print(dataToUse)
+
+numSamples <- 2000
 
 res <- webppl(
     program_code = model41,
     data = dataToUse,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = 0.1)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
     model_var = "model",
-    packages = c("./utils")
+    packages = c("./utils"),
+    output_format = "samples"
     )
 
-res.samp = get_samples(res, num_samples = 10000) %>% 
-  gather(param, val, mu: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free") + 
-  theme_bw()
+head(res) # examine res
+res.tidy <- res %>%
+  gather(parameter, value, mu, sigma)
+
+head(res.tidy) # examine res.tidy
+
+ggplot(res.tidy, aes(x = value))+
+  geom_histogram()+
+  facet_wrap(~parameter, scales = 'free')
+
 ```
+
+Try varying the amount of data.
+
+Also, try varying numSamples (fixing the data).
 
 # 4.1.2
 
 ```{r}
-dataToUse <- 5 + 2 * rnorm(4)
-
-res <- webppl(
-    program_code = model41,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
-    model_var = "model",
-    packages = c("./utils")
-    )
-
-res.samp = get_samples(res, num_samples = 10000)
-
-ggplot(res.samp, aes(x = mu, y = sigma)) +
-  geom_point() +
-  theme_bw()
+ggplot(res, aes(x = ..., y = ...)) +
+  geom_point()
 ```
+
+Interpret:
 
 ### 4.1.3
 
@@ -94,14 +99,13 @@ Suppose you knew the standard deviation of the Gaussian was 1.0, but still wante
 
 ```{r 4.1.3}
 model41FixedSigma <- '
-var data = observed_data
-
 var model = function() {
-  var mu = gaussian(0, 1/Math.sqrt(0.001)) 
+
+  var mu = sample(Gaussian({mu: 0, sigma: 30}));
   var sigma = // SET SIGMA TO A CONSTANT HERE
 
   observe({
-    data: data,
+    data: observed_data,
     link: Gaussian({mu: mu, sigma: sigma})
   })
 
@@ -115,34 +119,42 @@ res <- webppl(
     program_code = model41FixedSigma,
     data = dataToUse,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = 0.1)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
     model_var = "model",
-    packages = c("./utils")
+    packages = c("./utils"),
+    output_format = "samples"
     )
 
-res.samp = get_samples(res, num_samples = 10000) %>% 
-  gather(param, val, mu: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free") + 
-  theme_bw()
+head(res) # examine res
+res.tidy <- res %>%
+  gather(parameter, value, mu, sigma)
+
+head(res.tidy) # examine res.tidy
+
+ggplot(res.tidy, aes(x = value))+
+  geom_histogram()+
+  facet_wrap(~parameter, scales = 'free')
+
 ```
 
 ### 4.1.4
 
-Suppose you knew the mean of the Gaussian was zero, but wanted to infer the standard deviation from data. This is also a realistic question: Suppose you know that the error associated with a measurement is unbiased, so its average or mean is zero, but you are unsure how much noise there is in the instrument. Inferring the standard deviation is then a sensible way to infer the noisiness of the instrument. Once again, modify the WinBUGS script and Matlab or R code to do this. Once again, what does the revised graphical model look like?
+Suppose you knew the mean of the Gaussian was zero, but wanted to infer the standard deviation from data. This is also a realistic question: Suppose you know that the error associated with a measurement is unbiased, so its average or mean is zero, but you are unsure how much noise there is in the instrument. Inferring the standard deviation is then a sensible way to infer the noisiness of the instrument. Once again, modify the model. Once again, what does the revised graphical model look like?
 
 ```{r 4.1.3}
 model41FixedMu <- '
-var data = observed_data
-
 var model = function() {
   var mu = // SET MU TO A CONSTANT HERE
-  var sigma = uniform(0,1) 
+  var sigma = sample(Uniform({a:0, b:10}));
 
   observe({
-    data: data,
+    data: observed_data,
     link: Gaussian({mu: mu, sigma: sigma})
   })
 
@@ -156,18 +168,27 @@ res <- webppl(
     program_code = model41FixedSigma,
     data = dataToUse,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 10000, burn = 500),
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = 0.1)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
     model_var = "model",
-    packages = c("./utils")
+    packages = c("./utils"),
+    output_format = "samples"
     )
 
-res.samp = get_samples(res, num_samples = 10000) %>% 
-  gather(param, val, mu: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free") + 
-  theme_bw()
+head(res) # examine res
+res.tidy <- res %>%
+  gather(parameter, value, mu, sigma)
+
+head(res.tidy) # examine res.tidy
+
+ggplot(res.tidy, aes(x = value))+
+  geom_histogram()+
+  facet_wrap(~parameter, scales = 'free')
 ```
 
 ### 4.2 The seven scientists
