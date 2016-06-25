@@ -4,6 +4,7 @@ var observe = function(args) {
     var scr = _.isArray(args.data) ?
             sum( map( function(d) { return args.link.score(d) }, args.data) ) :
            args.link.score(args.data);
+    args.display ? display(scr) : null;
     factor(scr);
 };
 
