@@ -203,18 +203,22 @@ sevenScientistsModel <- '
 // so here we grab the 1st element of the array (the object)
 var data = observed_data[0] 
 
-var scientist_names = ["scientist_1","scientist_2","scientist_3","scientist_4",
-            "scientist_5","scientist_6","scientist_7"];
+var scientist_names = [
+    "scientist_1","scientist_2",
+    "scientist_3","scientist_4",
+    "scientist_5","scientist_6","scientist_7"];
 
-// 1/Math.sqrt(gamma(0.1, 1/0.1)),
-var sampleSigma = function(){ return sample(Uniform({a:0, b:10})); }
+// Here were using uniform priors on sigma (rather than the inverse gamma in LW)
+var sampleSigma = function(){ return sample(UniformDrift({a:0, b:20, r:1})); }
+
+// To use the inverse-gamma from LW;
+// Note that webppl uses shape & scale instead of shape and rate
+// var sampleSigma = function(){ return 1/Math.sqrt(gamma(0.1, 1/0.1)); }
+
 
 var model = function() {
 
-  var mu = sample(Gaussian({mu: 0, sigma: 20}));
-
-  // Note that webppl uses shape & scale instead of shape and rate
-
+  var mu = sample(GaussianDrift({mu: 0, sigma: 30}));
 
   var sigmas = {
     scientist_1 : sampleSigma(),
@@ -227,17 +231,12 @@ var model = function() {
   }
   
   // foreach is in utils packages: it is like map, but doesnt return anything
-//  foreach(scientist_names, function(scientist){
-//        observe({
-//          data: data[scientist],
-//          link: Gaussian({mu: mu, sigma: sigmas[scientist]})
-//        })
-//  })
-
-  factor(sum(map(function(scientist){
-    return Gaussian({mu: mu, sigma: sigmas[scientist]}).score(data[scientist])
-  }, scientist_names)))
-
+  foreach(scientist_names, function(scientist){
+        observe({
+          data: data[scientist],
+          link: Gaussian({mu: mu, sigma: sigmas[scientist]})
+        })
+  })
 
   return _.extend({mu:mu}, sigmas)
 
@@ -259,16 +258,13 @@ print(observed_data)
 library(jsonlite)
 toJSON(observed_data) # use toJSON to see how your data will look in WebPPL
 
-numSamples <- 2000
+numSamples <- 50000
 
 res <- webppl(
     program_code = sevenScientistsModel,
     data = observed_data,
     data_var = "observed_data",
     inference_opts = list(method="MCMC", 
-                             kernel = list(HMC = 
-                                      list(steps = 5,
-                                           stepSize = 0.05)),
                           samples = numSamples, 
                           burn = numSamples/2,
                           verbose = TRUE),
