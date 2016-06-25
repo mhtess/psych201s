@@ -360,7 +360,7 @@ ggplot(posterior, aes(x = p)) +
 
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
-runModel(commonRateModel, observed_data) %>%
+runModel32(commonRateModel, observed_data) %>%
   ggplot(aes(x = p)) +
   geom_histogram(binwidth = .025)
 ```
@@ -369,7 +369,7 @@ runModel(commonRateModel, observed_data) %>%
 
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
-runModel(commonRateModel, observed_data) %>%
+runModel32(commonRateModel, observed_data) %>%
   ggplot(aes(x = p)) +
   geom_histogram(binwidth = .025)
 ```
@@ -378,14 +378,14 @@ runModel(commonRateModel, observed_data) %>%
 
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
-runModel(commonRateModel, observed_data) %>%
+runModel32(commonRateModel, observed_data) %>%
   ggplot(aes(x = p)) +
   geom_histogram(binwidth = .025)
 ```
 
 ```{r}
 observed_data = list(k1 = ..., n1 = ..., k2 = ..., n2 = ...)
-runModel(commonRateModel, observed_data) %>%
+runModel32(commonRateModel, observed_data) %>%
   ggplot(aes(x = p)) +
   geom_histogram(binwidth = .025)
 ```
