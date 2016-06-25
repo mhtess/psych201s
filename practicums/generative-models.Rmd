@@ -175,7 +175,7 @@ Because we are passing actual values, we want to make a function that *takes in 
 
 It's worth noting that we can write our WebPPL program in a separte file, and call `webppl` on the file path. Let's try this.
 
-Download [this file](https://github.com/mhtess/psych201s/blob/master/practicums/webppl_models/discreteGaussian.wppl), and put it in a folder called `webppl_models` in the folder containing this practicum
+Download [this file](https://raw.githubusercontent.com/mhtess/psych201s/master/practicums/webppl_models/discreteGaussian.wppl), and put it in a folder called `webppl_models` in the folder containing this practicum
 
 You can open that file using RStudio. Chances are: it will open as a Text File (you can tell in the bottom right corner of the editor window). You can change that to JavaScript, and it will highlight syntax for you. For complicated programs, this is incredibly helpful.
 
