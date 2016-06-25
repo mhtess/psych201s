@@ -199,49 +199,94 @@ Seven scientists with wildly-differing experimental skills all make a measuremen
 
 ```{r}
 sevenScientistsModel <- '
-var data = observed_data
+// notice below that toJSON packages this up as object inside of an array
+// so here we grab the 1st element of the array (the object)
+var data = observed_data[0] 
+
+var scientist_names = ["scientist_1","scientist_2","scientist_3","scientist_4",
+            "scientist_5","scientist_6","scientist_7"];
+
+// 1/Math.sqrt(gamma(0.1, 1/0.1)),
+var sampleSigma = function(){ return sample(Uniform({a:0, b:10})); }
 
 var model = function() {
-  var mu = gaussian(0,1/Math.sqrt(0.001))
-  
+
+  var mu = sample(Gaussian({mu: 0, sigma: 20}));
+
   // Note that webppl uses shape & scale instead of shape and rate
-  var sigmas = repeat(data.length, function() {return 1/Math.sqrt(gamma(0.1, 1/0.1))})
+
+
+  var sigmas = {
+    scientist_1 : sampleSigma(),
+    scientist_2 : sampleSigma(),
+    scientist_3 : sampleSigma(),
+    scientist_4 : sampleSigma(),
+    scientist_5 : sampleSigma(),
+    scientist_6 : sampleSigma(),
+    scientist_7 : sampleSigma()
+  }
   
-  var score = sum(map(function(scientistPair) {
-    var dataPoint = scientistPair[0]
-    var sigma = scientistPair[1]
-    return Gaussian({mu: mu, sigma: sigma}).score(dataPoint);
-  }, zip(data, sigmas)))
+  // foreach is in utils packages: it is like map, but doesnt return anything
+//  foreach(scientist_names, function(scientist){
+//        observe({
+//          data: data[scientist],
+//          link: Gaussian({mu: mu, sigma: sigmas[scientist]})
+//        })
+//  })
 
-  factor(score)
+  factor(sum(map(function(scientist){
+    return Gaussian({mu: mu, sigma: sigmas[scientist]}).score(data[scientist])
+  }, scientist_names)))
 
-  // To make output easier to parse, give each parameter its own name
-  var parameterNames = map(function(i) {return "sigma" + (i + 1)}, _.range(sigmas.length));
-  return _.extend({mu: mu}, _.object(parameterNames, sigmas));
+
+  return _.extend({mu:mu}, sigmas)
+
 }
 '
 
-dataToUse <- c(-27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056)
+observed_data <- data.frame(
+  scientist_1 = -27.020, 
+  scientist_2 = 3.570, 
+  scientist_3 = 8.191, 
+  scientist_4 = 9.898, 
+  scientist_5 = 9.603, 
+  scientist_6 = 9.945, 
+  scientist_7 = 10.056
+  )
+  
+print(observed_data)
+
+library(jsonlite)
+toJSON(observed_data) # use toJSON to see how your data will look in WebPPL
+
+numSamples <- 2000
 
 res <- webppl(
     program_code = sevenScientistsModel,
-    data = dataToUse,
+    data = observed_data,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", 
-                          samples = 100000, burn = 10000, verbose = TRUE),
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 5,
+                                           stepSize = 0.05)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
     model_var = "model",
-    packages = c("./utils", "./utils/node_modules/underscore")
+    packages = c("./utils"),
+    output_format = "samples"
     )
 
-res.samp = get_samples(res, num_samples = 100000) %>% 
-  gather(param, val, mu: sigma7) 
-  
-# Truncate at 100 so we can see all the distributions
-ggplot(res.samp %>% filter(val < 100), aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free") + 
-  theme_bw()
+res.tidy <- res %>%
+  gather(parameter, value)
+
+ggplot(res.tidy, aes(x = value))+
+  geom_histogram()+
+  facet_wrap(~parameter, scales = 'free')
+
+
 ```
+
 
 # 4.2.2 
 
