@@ -28,6 +28,27 @@ runModelMCMC <- function(model, data_to_webppl,
     packages = c("./utils")
     )
 }
+
+runModelHMC <- function(model, data_to_webppl, 
+                        numSamples = 5000, stepSize = 0.05) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", 
+       inference_opts = list(method="MCMC", 
+                             kernel = 
+                               list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = stepSize)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+
 ```
 
 ### 3.4 Prior and posterior prediction
@@ -286,9 +307,15 @@ results %>%
 
 # 3.5.1
 
+Why is the posterior distribution in the left panel inherently one-dimensional, but the posterior predictive distribution in the right panel inherently two-dimensional?
+
 # 3.5.2
 
+What do you conclude about the descriptive adequacy of the model, based on the relationship between the observed data and the posterior predictive distribution?
+
 # 3.5.3
+
+What can you conclude about the parameter $\theta$?
 
 ### 3.6 Joint distributions
 
@@ -296,15 +323,16 @@ results %>%
 # k: List of m success counts
 Survey <- '
 // Unpack data
-var nmax = observed_data["nmax"]
+var nmax = observed_data["nmax"][0]
 var k = observed_data["k"]
+console.log(k)
 var probs = repeat(nmax, function() {return 1/nmax;});
 var vals = _.range(1, nmax + 1)
 
 // Inferring a Rate
 var model = function() {
   var n = categorical( {ps: probs, vs: vals} );
-  var p = beta({a: 1, b: 1})
+  var p = sample(UniformDrift({a: 0, b: 1, r : .01}))
   observe({
     data : k,           // Observed k number of Heads
     link: Binomial( {p : p, n: n }) // assuming a Binomial distribution
@@ -312,22 +340,40 @@ var model = function() {
   return {n: n, p: p}
 }
 '
+
+observed_data <- list(k = c(16, 18, 22, 25, 27), nmax = 500)
+results <- runModelMCMC(Survey, observed_data, numSamples = 100000)
+
+ggplot(results, aes(x = n, y = p)) +
+  geom_point()
+
+ggplot(results, aes(x = n)) +
+  geom_histogram()
+
+ggplot(results, aes(x = p)) +
+  geom_histogram(binwidth = .025)
 ```
 
-```{r}
-observed_data <- list(k = c(16, 18, 22, 25, 27), nmax = 500)
-output <- runModel(Survey, observed_data, numSamples = 100000, method = "incrementalMH") 
-ggs_pairs(output)
-```
 
 # 3.6.1
+The basic moral of this example is that it is often worth thinking about joint posterior distributions over model parameters. In this case the marginal posterior distributions are probably misleading. Potentially even more misleading are common (and often perfectly appropriate) point esti- mates of the joint distribution. The cross in Figure 3.13 shows the expected value of the joint posterior, as estimated from the samples. Notice that it does not even lie in a region of the parameter space with any posterior mass. Does this make sense?
 
 # 3.6.2
-
+The circle in Figure 3.13 shows an approximation to the mode (i.e., the sample with maximum likelihood) from the joint posterior samples. Does this make sense?
 # 3.6.3
+
+Try the very slightly changed data k = {16, 18, 22, 25, 28}. How does this change the joint posterior, the marginal posteriors, the expectation, and the mode? If you were comfortable with the mode, are you still comfortable?
 
 ```{r}
 observed_data <- list(k = c(16, 18, 22, 25, 28), nmax = 500)
-output <- runModel(Survey, observed_data, numSamples = 100000, method = "incrementalMH") 
-ggs_pairs(output)
+results <- runModelMCMC(Survey, observed_data, numSamples = 100000)
+
+ggplot(results, aes(x = n, y = p)) +
+  geom_point()
+
+ggplot(results, aes(x = n)) +
+  geom_histogram()
+
+ggplot(results, aes(x = p)) +
+  geom_histogram(binwidth = .025)
 ```
