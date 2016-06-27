@@ -166,7 +166,7 @@ Suppose you knew the mean of the Gaussian was zero, but wanted to infer the stan
 ```{r 4.1.3}
 model41FixedMu <- '
 var model = function() {
-  var mu = 0 // SET MU TO A CONSTANT HERE
+  var mu = ... // SET MU TO A CONSTANT HERE
   var sigma = sample(Uniform({a:0, b:10}));
 
   observe({
