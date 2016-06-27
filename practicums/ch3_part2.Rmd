@@ -8,7 +8,8 @@ output: html_document
 ### setup
 
 ```{r}
-setwd("~/Repos/psych201s/practicums/")
+getwd() # check working dir
+setwd("~/Repos/psych201s/practicums/") #change working dir if need be
 library(rwebppl)
 library(dplyr)
 library(tidyr)
@@ -83,13 +84,22 @@ observed_data <- list(k = 1, n = 15)
 results <- runModelMCMC(firstModelWithPredictives, observed_data) 
 
 head(results) ## what does the data look like
+```
 
+Prior and posterior distributions over parameters
+
+```{r}
 results %>%
   select(prior, posterior) %>% # grab only prior and posterior columns
   gather(distribution, value) %>% # flatten them into a key and value column see http://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf for details on select/gather
   ggplot(aes(x = value, group=distribution, fill = distribution)) +
-  geom_density(alpha = .5)
+  geom_density(alpha = .5, adjust = 1.5) 
+  #geom_histogram(position=position_dodge()) # can also look at a histogram
+```
 
+Prior and posterior predictive distributions
+
+```{r}
 results %>%
   select(priorPredictive, posteriorPredictive) %>%
   gather(distribution, value) %>%
@@ -112,7 +122,7 @@ newPriorModel <- '
 var k = observed_data["k"][0] // number of heads
 var n = observed_data["n"][0] // number of flips
 var model = function() {
-  var priorDist = Beta({a : 1, b : 1})
+   var priorDist = Beta({a : 1, b : 1})
    var p = sample(priorDist)  // TRY NEW PRIOR HERE
    observe({
       data : k,           // Observed k number of Heads
