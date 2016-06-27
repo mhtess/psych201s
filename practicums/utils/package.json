@@ -6,5 +6,8 @@
       "utils.wppl"
     ],
   "headers":["header.js"]
+  },
+  "dependencies" : {
+    "underscore" : "~1.8"
   }
 }
