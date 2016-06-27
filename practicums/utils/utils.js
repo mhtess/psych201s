@@ -1,3 +1,5 @@
+var _ = require("underscore");
+
 function isNumeric(num){
   return !isNaN(num);
 };
@@ -17,5 +19,8 @@ function fillArray(value, len) {
 module.exports = {
   parseFloat: parseFloat,
   isNumeric: isNumeric,
-  fillArray: fillArray
+  fillArray: fillArray,
+  extend: _.extend,
+  range: _.range,
+  object: _.object
 };
