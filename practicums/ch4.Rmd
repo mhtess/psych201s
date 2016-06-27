@@ -12,11 +12,47 @@ library(rwebppl)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(jsonlite)
 
 getwd() # check working directory
 setwd(...) # change working directory if need be
 
 rm(list=ls()) # clear workspace
+
+runModelMCMC <- function(model, data_to_webppl, 
+                         numSamples = 50000) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", 
+       inference_opts = list(method="MCMC", 
+                            samples = numSamples, 
+                            burn = numSamples/2,
+                            verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+
+runModelHMC <- function(model, data_to_webppl, 
+                         numSamples = 50000, stepSize = 0.05) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data",
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = stepSize)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+  )
+}
 ```
 
 # 4.1 Inferring a mean and standard deviation
@@ -40,11 +76,16 @@ var model = function() {
 
 # 4.1.1
 
+Try a few data sets, varying what you expect the mean and standard deviation to be, and how many data you observe. 
+
 Some suggestions:
 
 (1) Gaussian generated data (HINT: use `data <- 5 + 2 * rnorm(4)` for 4 data points with underlying mu = 5  and sigma = 2)
 (2) a longer list of data (e.g. lenght 10 instead of length 4)
 (3) uniformly generated data (HINT: use `data <- 1.5 * runif(30)`)
+
+Also, try varying numSamples (fixing the data).
+
 
 ```{r}
 dataToUse <- 5 + 2 * rnorm(4)
@@ -52,41 +93,29 @@ print(dataToUse)
 
 numSamples <- 2000
 
-res <- webppl(
-    program_code = model41,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method="MCMC", 
-                             kernel = list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = 0.1)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    packages = c("./utils"),
-    output_format = "samples"
-    )
+res <- runModelHMC(model41, dataToUse, numSamples = numSamples)
 
-head(res) # examine res
-res.tidy <- res %>%
-  gather(parameter, value, mu, sigma)
+# examine res
+head(res) 
 
-head(res.tidy) # examine res.tidy
-
-ggplot(res.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~parameter, scales = 'free')
+# Plot sample histograms
+res %>%
+  gather(parameter, value, mu, sigma) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 
 ```
 
-Try varying the amount of data.
-
-Also, try varying numSamples (fixing the data).
-
 # 4.1.2
 
+Plot the joint posterior of mu and sigma. That is, plot the samples from
+mu against those of sigma. Interpret the shape of the joint posterior.
+
 ```{r}
+head(res)
+
+# Fill in the columns you want to plot...
 ggplot(res, aes(x = ..., y = ...)) +
   geom_point()
 ```
@@ -102,7 +131,7 @@ model41FixedSigma <- '
 var model = function() {
 
   var mu = sample(Gaussian({mu: 0, sigma: 30}));
-  var sigma = // SET SIGMA TO A CONSTANT HERE
+  var sigma = ... // SET SIGMA TO A CONSTANT HERE
 
   observe({
     data: observed_data,
@@ -113,33 +142,20 @@ var model = function() {
 }
 '
 
-dataToUse <- 5 + 1 * rnorm(4)
+dataToUse <- 5 + 1 * rnorm(10)
+mean(dataToUse)
 
-res <- webppl(
-    program_code = model41FixedSigma,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method="MCMC", 
-                             kernel = list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = 0.1)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    packages = c("./utils"),
-    output_format = "samples"
-    )
+numSamples <- 5000
+
+res <- runModelHMC(model41FixedSigma, dataToUse, 
+                   numSamples)
 
 head(res) # examine res
-res.tidy <- res %>%
-  gather(parameter, value, mu, sigma)
-
-head(res.tidy) # examine res.tidy
-
-ggplot(res.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~parameter, scales = 'free')
+res %>%
+  gather(parameter, value, mu, sigma) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 
 ```
 
@@ -150,7 +166,7 @@ Suppose you knew the mean of the Gaussian was zero, but wanted to infer the stan
 ```{r 4.1.3}
 model41FixedMu <- '
 var model = function() {
-  var mu = // SET MU TO A CONSTANT HERE
+  var mu = 0 // SET MU TO A CONSTANT HERE
   var sigma = sample(Uniform({a:0, b:10}));
 
   observe({
@@ -162,33 +178,18 @@ var model = function() {
 }
 '
 
-dataToUse <- 0 + 5 * rnorm(4)
+dataToUse <- 0 + 5 * rnorm(10)
+sd(dataToUse)
 
-res <- webppl(
-    program_code = model41FixedSigma,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method="MCMC", 
-                             kernel = list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = 0.1)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    packages = c("./utils"),
-    output_format = "samples"
-    )
+numSamples <- 5000
 
-head(res) # examine res
-res.tidy <- res %>%
-  gather(parameter, value, mu, sigma)
+res <- runModelHMC(model41FixedMu, dataToUse, numSamples)
 
-head(res.tidy) # examine res.tidy
-
-ggplot(res.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~parameter, scales = 'free')
+res %>%
+  gather(parameter, value, mu, sigma) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 ```
 
 ### 4.2 The seven scientists
@@ -204,9 +205,9 @@ sevenScientistsModel <- '
 var data = observed_data[0] 
 
 var scientist_names = [
-    "scientist_1","scientist_2",
-    "scientist_3","scientist_4",
-    "scientist_5","scientist_6","scientist_7"];
+    "scientist_1","scientist_2", "scientist_3","scientist_4",
+    "scientist_5","scientist_6","scientist_7"
+];
 
 // Here were using uniform priors on sigma (rather than the inverse gamma in LW)
 var sampleSigma = function(){ return sample(UniformDrift({a:0, b:20, r:1})); }
@@ -214,7 +215,6 @@ var sampleSigma = function(){ return sample(UniformDrift({a:0, b:20, r:1})); }
 // To use the inverse-gamma from LW;
 // Note that webppl uses shape & scale instead of shape and rate
 // var sampleSigma = function(){ return 1/Math.sqrt(gamma(0.1, 1/0.1)); }
-
 
 var model = function() {
 
@@ -238,8 +238,7 @@ var model = function() {
         })
   })
 
-  return _.extend({mu:mu}, sigmas)
-
+  return utils.extend({mu:mu}, sigmas)
 }
 '
 
@@ -255,84 +254,86 @@ observed_data <- data.frame(
   
 print(observed_data)
 
-library(jsonlite)
 toJSON(observed_data) # use toJSON to see how your data will look in WebPPL
 
-numSamples <- 50000
+numSamples <- 100000
 
-res <- webppl(
-    program_code = sevenScientistsModel,
-    data = observed_data,
-    data_var = "observed_data",
-    inference_opts = list(method="MCMC", 
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    packages = c("./utils"),
-    output_format = "samples"
-    )
+res <- runModelMCMC(sevenScientistsModel, observed_data, numSamples)
 
-res.tidy <- res %>%
-  gather(parameter, value)
-
-ggplot(res.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~parameter, scales = 'free')
-
-
+res %>%
+  gather(parameter, value) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 ```
-
 
 # 4.2.2 
 
-Change the graphical model in Figure 4.2 to use a uniform prior over the standard deviations, as was done in Figure 4.1. Experiment with the effect the upper bound of this uniform prior has on inference.
+Experiment with the effect the upper bound of this uniform prior has on inference.
 
 ```{r 4.2.2}
 sevenScientistsModel <- '
-var data = observed_data
+var data = observed_data[0] 
+
+var scientist_names = [
+    "scientist_1","scientist_2","scientist_3","scientist_4",
+    "scientist_5","scientist_6","scientist_7"
+];
+
+// CHANGE UPPER BOUND b HERE
+var sampleSigma = function(){ 
+  return sample(UniformDrift({a:0, b: ..., r:1})); 
+};
+
+// To use the inverse-gamma from LW;
+// Note that webppl uses shape & scale instead of shape and rate
+// var sampleSigma = function(){ return 1/Math.sqrt(gamma(0.1, 1/0.1)); }
 
 var model = function() {
-  var mu = gaussian(0,1/Math.sqrt(0.001))
+
+  var mu = sample(GaussianDrift({mu: 0, sigma: 30}));
+
+  var sigmas = {
+    scientist_1 : sampleSigma(),
+    scientist_2 : sampleSigma(),
+    scientist_3 : sampleSigma(),
+    scientist_4 : sampleSigma(),
+    scientist_5 : sampleSigma(),
+    scientist_6 : sampleSigma(),
+    scientist_7 : sampleSigma()
+  }
   
-  // Note that webppl uses shape & scale instead of shape and rate
-  var sigmas = repeat(data.length, function() {
-    return uniform(0,25) // CHANGE UPPER BOUND HERE
+  // foreach is in utils packages: it is like map, but doesnt return anything
+  foreach(scientist_names, function(scientist){
+        observe({
+          data: data[scientist],
+          link: Gaussian({mu: mu, sigma: sigmas[scientist]})
+        })
   })
-  
-  var score = sum(map(function(scientistPair) {
-    var dataPoint = scientistPair[0]
-    var sigma = scientistPair[1]
-    return Gaussian({mu: mu, sigma: sigma}).score(dataPoint);
-  }, zip(data, sigmas)))
 
-  factor(score)
-
-  // To make output easier to parse, give each parameter its own name
-  var parameterNames = map(function(i) {return "sigma" + (i + 1)}, _.range(sigmas.length));
-  return _.extend({mu: mu}, _.object(parameterNames, sigmas));
+  return utils.extend({mu:mu}, sigmas)
 }
 '
 
-dataToUse <- c(-27.020, 3.570, 8.191, 9.898, 9.603, 9.945, 10.056)
+observed_data <- data.frame(
+  scientist_1 = -27.020, 
+  scientist_2 = 3.570, 
+  scientist_3 = 8.191, 
+  scientist_4 = 9.898, 
+  scientist_5 = 9.603, 
+  scientist_6 = 9.945, 
+  scientist_7 = 10.056
+  )
 
-res <- webppl(
-    program_code = sevenScientistsModel,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 10000),
-    model_var = "model",
-    packages = c("./utils", "./utils/node_modules/underscore")
-    )
+numSamples <- 100000
 
-res.samp = get_samples(res, num_samples = 100000) %>% 
-  gather(param, val, mu: sigma7) 
-  
-# Truncate at 100 so we can see all the distributions
-ggplot(res.samp %>% filter(val < 100), aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free") + 
-  theme_bw()
+res <- runModelMCMC(sevenScientistsModel, observed_data, numSamples)
+
+res %>%
+  gather(parameter, value) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 ```
 
 ### 4.3 Repeated measures of IQ
@@ -366,7 +367,7 @@ var model = function() {
 
 # 4.3.1 
 
-Use the posterior distribution for each person’s μi to estimate their IQ. What can we say about the precision of the IQ test?
+Use the posterior distribution for each person’s mu_i to estimate their IQ. What can we say about the precision of the IQ test?
 
 ```{r}
 # Three people with three measurements each; try different values...
@@ -377,7 +378,8 @@ res <- webppl(
     program_code = modelToUse,
     data = dataToUse,
     data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 50000, burn = 1000),
+    inference_opts = list(method = "incrementalMH", samples = 50000, 
+                          burn = 1000, verbose = TRUE),
     model_var = "model",
     packages = c("./utils")
     )
