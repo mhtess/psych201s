@@ -29,26 +29,6 @@ runModelMCMC <- function(model, data_to_webppl,
     )
 }
 
-runModelHMC <- function(model, data_to_webppl, 
-                        numSamples = 5000, stepSize = 0.05) {
-  wp <- webppl(
-    program_code = model,
-    data = data_to_webppl,
-    data_var = "observed_data", 
-       inference_opts = list(method="MCMC", 
-                             kernel = 
-                               list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = stepSize)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    output_format = "samples",
-    packages = c("./utils")
-    )
-}
-
 ```
 
 ### 3.4 Prior and posterior prediction
