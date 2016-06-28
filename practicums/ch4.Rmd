@@ -394,7 +394,7 @@ res %>%
 
 # 4.3.2 
 
-Now, use a more realistic prior assumption for the mu_i means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. Make this change in the script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
+Now, use a more realistic prior assumption for the means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. Make this change in the script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
 
 ```{r}
 IQmodelGaussianPrior <- '
@@ -407,16 +407,11 @@ var model = function() {
 
   // each person has a separate latent IQ
   // USE NEW PRIOR HERE
-  //var mus = {
-  //  p1: gaussian(..., ...),
-  //  p2: gaussian(..., ...),
-  //  p3: gaussian(..., ...)
-  //};
   var mus = {
-    p1: sample(GaussianDrift({mu: 100, sigma: 15})),
-    p2: sample(GaussianDrift({mu: 100, sigma: 15})),
-    p3: sample(GaussianDrift({mu: 100, sigma: 15}))
-  }
+    p1: gaussian(..., ...),
+    p2: gaussian(..., ...),
+    p3: gaussian(..., ...)
+  };
   
   foreach(personNames, function(person){
     observe({
@@ -449,7 +444,7 @@ res %>%
 
 # 4.3.3. 
 
-Repeat both of the above stages (i.e., using both priors on μ_i) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
+Repeat both of the above stages (i.e., using both priors on mus) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
 
 ```{r}
 numSamples = 10000;
