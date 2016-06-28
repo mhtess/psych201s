@@ -344,23 +344,29 @@ We assume that the differences in repeated test scores are distributed as Gaussi
 
 ```{r}
 IQmodelUniformPrior <- '
+var personNames = ["p1", "p2", "p3"]
+
 var model = function() {
-  // single SD for all people (corresponding to measurement error)
-  var data = [observed_data["p1"], observed_data["p2"], observed_data["p3"]];
-  var sigma = uniform(0,100)
+  // everyone shares same sigma (corresponding to measurement error)
+  var sigma = sample(UniformDrift({a: 0, b: 100, r: 5}))
 
-  // each person has a latent IQ; there are different priors we could set here...
-  var mus = repeat(data.length, function() {return uniform(0, 300)})
+  // each person has a separate latent IQ
+  var mus = {
+    p1: sample(UniformDrift({a: 0, b: 300, r: 5})),
+    p2: sample(UniformDrift({a: 0, b: 300, r: 5})),
+    p3: sample(UniformDrift({a: 0, b: 300, r: 5}))
+  };
 
-  var score = sum(map(function(IQPair) {
-    var measurements = IQPair[0]
-    var mu = IQPair[1]
-    return sum(map(function(measurement) {
-      return Gaussian({mu: mu, sigma: sigma}).score(measurement);
-    }, measurements));
-  }, zip(data, mus)))
-  factor(score)
-  return {mu1: mus[0], mu2: mus[1], mu3: mus[2], sigma: sigma}
+  foreach(observed_data, function(row) {
+    foreach(personNames, function(person){
+      observe({
+        data: row[person],
+        link: Gaussian({mu: mus[person], sigma: sigma})
+      })
+    })
+  })
+  
+  return utils.extend({sigma: sigma}, mus)
 }
 '
 ```
@@ -371,75 +377,74 @@ Use the posterior distribution for each person’s mu_i to estimate their IQ. Wh
 
 ```{r}
 # Three people with three measurements each; try different values...
-modelToUse <- IQmodelUniformPrior
-dataToUse <- list(p1 = c(90,95,100), p2 = c(105,110,115), p3 = c(150,155,160))
+dataToUse <- data.frame(
+  p1 = c(90,95,100), 
+  p2 = c(105,110,115), 
+  p3 = c(150,155,160)
+)
 
-res <- webppl(
-    program_code = modelToUse,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 50000, 
-                          burn = 1000, verbose = TRUE),
-    model_var = "model",
-    packages = c("./utils")
-    )
+res <- runModelMCMC(IQmodelUniformPrior, dataToUse, numSamples = 100000)
 
-res.samp = get_samples(res, num_samples = 50000) %>% 
-  gather(param, val, mu1: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free")
+res %>%
+  gather(param, val) %>%
+  ggplot(aes(x = val)) +
+    geom_histogram() +
+    facet_wrap( ~ param, scale =  "free")
 ```
 
 # 4.3.2 
 
-Now, use a more realistic prior assumption for the μi means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. Make this change in the script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
+Now, use a more realistic prior assumption for the mu_i means. Theoretically, IQ distributions should have a mean of 100, and a standard deviation of 15. Make this change in the script, and re-run the inference. How do the estimates of IQ given by the means change? Why?
 
 ```{r}
 IQmodelGaussianPrior <- '
 var model = function() {
-  // single SD for all people (corresponding to measurement error)
-  var data = [observed_data["p1"], observed_data["p2"], observed_data["p3"]];
-  var sigma = uniform(0,100)
+  var data = observed_data[0]
+  var personNames = ["p1", "p2", "p3"]
 
-  // each person has a latent IQ; there are different priors we could set here...
-  var mus = repeat(data.length, function() {return gaussian(100, 15);})
+  // everyone shares same sigma (corresponding to measurement error)
+  var sigma = sample(UniformDrift({a: 0, b: 100, r: 5}))
 
-  var score = sum(map(function(IQPair) {
-    var measurements = IQPair[0]
-    var mu = IQPair[1]
-    return sum(map(function(measurement) {
-      return Gaussian({mu: mu, sigma: sigma}).score(measurement);
-    }, measurements));
-  }, zip(data, mus)))
-  factor(score)
-  return {mu1: mus[0], mu2: mus[1], mu3: mus[2], sigma: sigma}
+  // each person has a separate latent IQ
+  // USE NEW PRIOR HERE
+  //var mus = {
+  //  p1: gaussian(..., ...),
+  //  p2: gaussian(..., ...),
+  //  p3: gaussian(..., ...)
+  //};
+  var mus = {
+    p1: sample(GaussianDrift({mu: 100, sigma: 15})),
+    p2: sample(GaussianDrift({mu: 100, sigma: 15})),
+    p3: sample(GaussianDrift({mu: 100, sigma: 15}))
+  }
+  
+  foreach(personNames, function(person){
+    observe({
+      data: data[person],
+      link: Gaussian({mu: mus[person], sigma: sigma})
+    })
+  })
+
+  return utils.extend({sigma: sigma}, mus)
 }
 '
 ```
 
 ```{r}
-# Three people with three measurements each; try different values...
-modelToUse <- IQmodelGaussianPrior
-dataToUse <- list(p1 = c(90,95,100), p2 = c(105,110,115), p3 = c(150,155,160))
+dataToUse <- data.frame(
+  p1 = c(90,95,100), 
+  p2 = c(105,110,115), 
+  p3 = c(150,155,160)
+)
 
-res <- webppl(
-    program_code = modelToUse,
-    data = dataToUse,
-    data_var = "observed_data",
-    inference_opts = list(method = "incrementalMH", samples = 100000, burn = 1000),
-    model_var = "model",
-    packages = c("./utils")
-    )
+res <- runModelMCMC(IQmodelGaussianPrior, dataToUse, numSamples = 100000)
 
-res.samp = get_samples(res, num_samples = 100000) %>% 
-  gather(param, val, mu1: sigma) 
-  
-ggplot(res.samp, aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ param, scale =  "free")
-
+res %>%
+  gather(param, val) %>%
+  ggplot(aes(x = val)) +
+    geom_histogram() +
+    facet_wrap( ~ param)
+    
 ```
 
 # 4.3.3. 
@@ -447,33 +452,27 @@ ggplot(res.samp, aes(x = val)) +
 Repeat both of the above stages (i.e., using both priors on μ_i) with a new, but closely related, data set that has scores of (94, 95, 96), (109, 110,111), and (154,155,156). How do the different prior assumptions affect IQ estimation for these data. Why does it not follow the same pattern as the previous data?
 
 ```{r}
-# Three people with three measurements each; try different values...
-modelToUse <- IQmodelUniformPrior 
-# modelToUse <- IQmodelGaussianPrior 
-dataToUse <- list(p1 = c(94, 95, 96), p2 = c(109, 110,111), p3 = c(154,155,156))
-
 numSamples = 10000;
 
-res.samp <- webppl(program_code = modelToUse,
-       data = dataToUse,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC", 
-                             kernel = 
-                               list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = 0.1)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
+# Three people with three measurements each; try different values...
+dataToUse <- data.frame(
+  p1 = c( 94,  95,  96), 
+  p2 = c(109, 110, 111), 
+  p3 = c(154, 155, 156)
+)
 
-res.samp %>%
-  gather(parameter, val) %>%
+resUnif <- runModelMCMC(IQmodelUniformPrior, dataToUse, numSamples = 100000)
+resGaussian <- runModelMCMC(IQmodelGaussianPrior, dataToUse, numSamples = 100000)
+
+resUnif %>%
+  gather(param, val) %>%
   ggplot(aes(x = val)) +
-  geom_histogram() +
-  facet_wrap( ~ parameter, scale =  "free")
+    geom_histogram(binwidth = .1) +
+    facet_wrap( ~ param)
 
+resGaussian %>%
+  gather(param, val) %>%
+  ggplot(aes(x = val)) +
+    geom_histogram() +
+    facet_wrap( ~ param) 
 ```
