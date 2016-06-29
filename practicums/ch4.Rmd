@@ -357,15 +357,13 @@ var model = function() {
     p3: sample(UniformDrift({a: 0, b: 300, r: 5}))
   };
 
-  foreach(observed_data, function(row) {
-    foreach(personNames, function(person){
-      observe({
-        data: row[person],
-        link: Gaussian({mu: mus[person], sigma: sigma})
-      })
+  foreach(personNames, function(person){
+    observe({
+      data: observed_data[person],
+      link: Gaussian({mu: mus[person], sigma: sigma})
     })
   })
-  
+
   return utils.extend({sigma: sigma}, mus)
 }
 '
@@ -377,7 +375,7 @@ Use the posterior distribution for each person’s mu_i to estimate their IQ. Wh
 
 ```{r}
 # Three people with three measurements each; try different values...
-dataToUse <- data.frame(
+dataToUse <- list(
   p1 = c(90,95,100), 
   p2 = c(105,110,115), 
   p3 = c(150,155,160)
@@ -399,23 +397,22 @@ Now, use a more realistic prior assumption for the means. Theoretically, IQ dist
 ```{r}
 IQmodelGaussianPrior <- '
 var model = function() {
-  var data = observed_data[0]
   var personNames = ["p1", "p2", "p3"]
 
   // everyone shares same sigma (corresponding to measurement error)
-  var sigma = sample(UniformDrift({a: 0, b: 100, r: 5}))
+  var sigma = sample(UniformDrift({a: 0, b: 100, r: 2}))
 
   // each person has a separate latent IQ
   // USE NEW PRIOR HERE
   var mus = {
-    p1: gaussian(..., ...),
-    p2: gaussian(..., ...),
-    p3: gaussian(..., ...)
+    p1: sample(GaussianDrift({mu: ..., sigma: ...})),
+    p2: sample(GaussianDrift({mu: ..., sigma: ...})),
+    p3: sample(GaussianDrift({mu: ..., sigma: ...}))
   };
-  
+
   foreach(personNames, function(person){
     observe({
-      data: data[person],
+      data: observed_data[person],
       link: Gaussian({mu: mus[person], sigma: sigma})
     })
   })
@@ -426,7 +423,7 @@ var model = function() {
 ```
 
 ```{r}
-dataToUse <- data.frame(
+dataToUse <- list(
   p1 = c(90,95,100), 
   p2 = c(105,110,115), 
   p3 = c(150,155,160)
@@ -438,7 +435,7 @@ res %>%
   gather(param, val) %>%
   ggplot(aes(x = val)) +
     geom_histogram() +
-    facet_wrap( ~ param)
+    facet_wrap( ~ param, scale = "free")
     
 ```
 
@@ -450,24 +447,26 @@ Repeat both of the above stages (i.e., using both priors on mus) with a new, but
 numSamples = 10000;
 
 # Three people with three measurements each; try different values...
-dataToUse <- data.frame(
+dataToUse <- list(
   p1 = c( 94,  95,  96), 
   p2 = c(109, 110, 111), 
   p3 = c(154, 155, 156)
 )
 
-resUnif <- runModelMCMC(IQmodelUniformPrior, dataToUse, numSamples = 100000)
-resGaussian <- runModelMCMC(IQmodelGaussianPrior, dataToUse, numSamples = 100000)
+resUnif <- runModelMCMC(IQmodelUniformPrior, dataToUse, 
+                        numSamples = 100000)
+resGaussian <- runModelMCMC(IQmodelGaussianPrior, dataToUse, 
+                            numSamples = 100000)
 
 resUnif %>%
   gather(param, val) %>%
   ggplot(aes(x = val)) +
     geom_histogram(binwidth = .1) +
-    facet_wrap( ~ param)
+    facet_wrap( ~ param) 
 
 resGaussian %>%
   gather(param, val) %>%
   ggplot(aes(x = val)) +
-    geom_histogram() +
+    geom_histogram(binwidth = .1) +
     facet_wrap( ~ param) 
 ```
