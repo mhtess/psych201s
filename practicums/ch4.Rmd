@@ -198,6 +198,11 @@ Seven scientists with wildly-differing experimental skills all make a measuremen
 
 # 4.2.1
 
+Technical note:
+
+In these WebPPL model, we use some distributions with the word *Drift* after them (e.g. `GaussianDrift` and `UniformDrift`). This is for computational efficiency and is mathematically identical to `Gaussian` and `Uniform`. Some of these, e.g. `UniformDrift`, have an extra parameter `r` which we've specified (for `GaussianDrift`, this parameter is automatically specified and you don't have to worry about it). What Drifting does is, after having sampled many many times (like in rejection sampling), the algorithm learns what values are good, and then prefers to sample for those better values. It's still, in a sense, sampling from the prior; but it's sampling from prior in a smart way.
+
+
 ```{r}
 sevenScientistsModel <- '
 // notice below that toJSON packages this up as object inside of an array
@@ -209,12 +214,15 @@ var scientist_names = [
     "scientist_5","scientist_6","scientist_7"
 ];
 
-// Here were using uniform priors on sigma (rather than the inverse gamma in LW)
-var sampleSigma = function(){ return sample(UniformDrift({a:0, b:20, r:1})); }
 
 // To use the inverse-gamma from LW;
 // Note that webppl uses shape & scale instead of shape and rate
-// var sampleSigma = function(){ return 1/Math.sqrt(gamma(0.1, 1/0.1)); }
+var sampleSigma = function(){ return 1/Math.sqrt(gamma(0.1, 1/0.1)); }
+
+// For 4.2.2 using a uniform prior
+// Here were using uniform priors on sigma (rather than the inverse gamma in LW)
+// var sampleSigma = function(){ return sample(UniformDrift({a:0, b:20, r:1})); }
+
 
 var model = function() {
 
@@ -266,6 +274,10 @@ res %>%
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 ```
+
+The variance parameters are hard to see because they have such long tails.
+
+Try clipping the values at 100 for better visual clarity using `res %>% gather(parameter, value) %>% filter(value < 100) %>% ... `
 
 # 4.2.2 
 
@@ -455,6 +467,7 @@ dataToUse <- list(
 
 resUnif <- runModelMCMC(IQmodelUniformPrior, dataToUse, 
                         numSamples = 100000)
+
 resGaussian <- runModelMCMC(IQmodelGaussianPrior, dataToUse, 
                             numSamples = 100000)
 
