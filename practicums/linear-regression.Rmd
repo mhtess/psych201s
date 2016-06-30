@@ -1,0 +1,69 @@
+---
+title: "linear-regression"
+author: "mht"
+date: "June 26, 2016"
+output: html_document
+---
+
+
+```{r}
+
+'
+var xs = [0, 1, 2, 3]
+var ys = [0, 1, 4, 6]
+
+var linearFunction = function(m, x, b){
+  return m*x + b
+}
+
+var linearRegression = function() {
+  var m = gaussian(0, 2)
+  var b = gaussian(0, 2)
+  var sigma = gamma(1, 1)
+
+  foreach(function(i){})
+
+  map2(
+      function(x, y) {
+        factor(Gaussian({mu: f(x), sigma: sigma}).score(y))
+      },
+      xs,
+      ys)
+
+  return f(4)
+}
+'
+
+```
+
+
+```{r}
+
+
+'var xs = [-10, -5, 2, 6, 10]
+var labels = [false, false, true, true, true]
+
+var model = function() {
+  var m = gaussian(0, 1)
+  var b = gaussian(0, 1)
+  var sigma = gamma(1, 1)
+
+  var y = function(x) {
+    return gaussian(m * x + b, sigma)
+  }
+  var sigmoid = function(x) {
+    return 1 / (1 + Math.exp(-1 * y(x)))
+  }
+
+  map2(
+      function(x, label) {
+        factor(Bernoulli({p: sigmoid(x)}).score(label))
+      },
+      xs,
+      labels)
+
+  return sigmoid(8)
+}
+'
+```
+
