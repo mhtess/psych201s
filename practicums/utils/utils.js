@@ -22,5 +22,7 @@ module.exports = {
   fillArray: fillArray,
   extend: _.extend,
   range: _.range,
-  object: _.object
+  object: _.object,
+  pluck: _.pluck,
+  uniq: _.uniq
 };
