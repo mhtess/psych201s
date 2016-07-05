@@ -91,6 +91,52 @@ res %>%
 
 
 ```{r}
+fixedEffectModel <- '
+var linearFunction = function(x, b_0, b_1){
+  return b_1*x + b_0
+}
+
+var model = function() {
+  var b_0 = sample(UniformDrift({a: -10, b: 10, r:.1}))
+  var b_1 = sample(UniformDrift({a: -10, b: 10, r:.1}))
+  var sigma = sample(UniformDrift({a: 0, b: 20, r:.1}))
+
+  foreach(observed_data, function(dataPoint){
+    var x = dataPoint["so"];
+    var y = Math.log(dataPoint["rt"]);
+    var predictedY = linearFunction(x, b_0, b_1)
+    observe({
+      data: y,
+      link: Gaussian({mu: predictedY, sigma: sigma})
+    })
+  })
+
+  return {b_0: b_0, b_1: b_1, sigma: sigma};
+}
+'
+
+numSamples = 10000
+GibsonWuData = read.table("../data/gibsonwu2012data.txt", header = T) %>%
+  filter(region == "headnoun") %>%
+  mutate(subj = factor(subj),
+         item = factor(item),
+         so = ifelse(type == "subj-ext", -1, 1)) %>%
+  select(subj, item, so, rt)
+
+res <- runModelMCMC(fixedEffectModel, GibsonWuData, numSamples = numSamples)
+
+res %>%
+  gather(parameter, value) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
+
+res %>% 
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(mode = estimate_mode(value),
+            md_lo = round(HPDlo(value), 3),
+            md_hi = round(HPDhi(value), 3))
 
 ```
 
