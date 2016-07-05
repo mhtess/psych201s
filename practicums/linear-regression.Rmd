@@ -4,42 +4,98 @@ author: "mht"
 date: "June 26, 2016"
 output: html_document
 ---
+```{r}
+library(rwebppl)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(coda)
 
+setwd("~/Repos/psych201s/practicums")
+
+estimate_mode <- function(s) {
+  d <- density(s)
+  return(d$x[which.max(d$y)])
+}
+
+HPDhi<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","upper"])
+}
+
+HPDlo<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","lower"])
+}
+
+runModelMCMC <- function(model, data_to_webppl, 
+                         numSamples = 50000) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", 
+    inference_opts = list(method="MCMC", 
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+```
 
 ```{r}
 
-'
-var xs = [0, 1, 2, 3]
-var ys = [0, 1, 4, 6]
-
+model1 <- '
 var linearFunction = function(m, x, b){
   return m*x + b
 }
 
-var linearRegression = function() {
-  var m = gaussian(0, 2)
-  var b = gaussian(0, 2)
-  var sigma = gamma(1, 1)
+var model = function() {
+  var m = gaussian(0, 10)
+  var b = gaussian(0, 10)
+  var sigma = uniform(0, 20)
 
-  foreach(function(i){})
+  foreach(observed_data, function(dataPoint){
+    var x = dataPoint["x"];
+    var y = dataPoint["y"];
+    var predictedY = linearFunction(m, x, b)
+    observe({
+      data: y,
+      link: Gaussian({mu: predictedY, sigma: sigma})
+    })
+  })
 
-  map2(
-      function(x, y) {
-        factor(Gaussian({mu: f(x), sigma: sigma}).score(y))
-      },
-      xs,
-      ys)
-
-  return f(4)
+  return {m: m, b: b, sigma: sigma};
 }
 '
 
+numSamples = 50000
+observed_data <- data.frame(x = c(0,1,2,3), y = c(0,1,4,6));
+res <- runModelMCMC(model1, observed_data, numSamples = numSamples) 
+
+res %>%
+  gather(parameter, value) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
+
+res %>% 
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(mode = estimate_mode(value),
+            md_lo = round(HPDlo(value), 3),
+            md_hi = round(HPDhi(value), 3))
 ```
 
 
 ```{r}
 
+```
 
+
+```{r}
 'var xs = [-10, -5, 2, 6, 10]
 var labels = [false, false, true, true, true]
 
@@ -51,6 +107,7 @@ var model = function() {
   var y = function(x) {
     return gaussian(m * x + b, sigma)
   }
+
   var sigmoid = function(x) {
     return 1 / (1 + Math.exp(-1 * y(x)))
   }
