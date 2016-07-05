@@ -1,0 +1,40 @@
+var numSubjects = utils.uniq(utils.pluck(observed_data, "subj")).length;
+var numItems = utils.uniq(utils.pluck(observed_data, "item")).length;
+
+var model = function() {
+  // Fixed slope & intercept 
+  var b_0 = sample(Uniform({a: -10, b: 10}));
+  var b_1 = sample(Uniform({a: -5, b: 5}));
+
+  // Error sd
+  var sigma_error = sample(Uniform({a: 0, b: 4}));
+
+  // Subject intercepts
+  var sigma_subj = sample(Uniform({a: 0, b: 4}));
+  var subj_intercepts = repeat(numSubjects, function() {
+    return sample(Gaussian({mu: 0, sigma: sigma_subj}));
+  });
+
+  // Item intercepts
+  var sigma_item = sample(Uniform({a: 0, b: 4}));
+  var item_intercepts = repeat(numItems, function() {
+    return sample(Gaussian({mu: 0, sigma: sigma_item}));
+  });
+
+  var scrs = map(function(dataPoint){
+    var subjIntercept = subj_intercepts[dataPoint["subj"] - 1];
+    var itemIntercept = item_intercepts[dataPoint["item"] - 1];
+    var x = dataPoint["so"];
+    var y = Math.log(dataPoint["rt"]);
+    var predictedY = (b_0 + subjIntercept + itemIntercept) + b_1 * x;
+    return Gaussian({mu: predictedY, sigma: sigma_error}).score(y);
+  }, observed_data);
+
+  factor(sum(scrs));
+
+  return {b_0: b_0, 
+          b_1: b_1, 
+          sigma_error: sigma_error,
+          sigma_item : sigma_item,
+          sigma_subj : sigma_subj};
+};

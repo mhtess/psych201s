@@ -44,24 +44,6 @@ runModelMCMC <- function(model, data_to_webppl,
     )
 }
 
-runModelHMC <- function(model, data_to_webppl, 
-                         numSamples = 50000, stepSize = 0.05) {
-  wp <- webppl(
-    program_code = model,
-    data = data_to_webppl,
-    data_var = "observed_data",
-    inference_opts = list(method="MCMC", 
-                             kernel = list(HMC = 
-                                      list(steps = 10,
-                                           stepSize = stepSize)),
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-    model_var = "model",
-    output_format = "samples",
-    packages = c("./utils")
-  )
-}
 ```
 
 ```{r}
@@ -112,14 +94,14 @@ res %>%
 
 Now that we understand a what a simple linear regression looks like from a Bayesian viewpoint, we are ready to turn to the mixed-model example from Sorensen et al (2016). In this tutorial, we build up a progressively more complex Bayesian mixed-effects model on a real-world data set. 
 
-The simplest model is a purely fixed effects model, where we assume that all data points are independent (i.e. have uncorrelated errors). The only additional change from the model above is that we assume reaction times are *log-normal*, meaning that the logarithm of the reaction times follows a normal distribution. We do this simply by taking the log of the input reaction times. 
+The simplest model is a purely fixed effects model, where we assume that all data points are independent (i.e. have uncorrelated noise). The only additional change from the model above is that we assume reaction times are *log-normal*, meaning that the logarithm of the reaction times follows a normal distribution. We do this simply by taking the log of the input reaction times. 
 
 (Note that for this data set, where each individual gives responses for many different items, a purely fixed-effects model will be a bad assumption. We will handle correlated errors in a mixed-model further below.)
 
 ```{r}
 fixedEffectModel <- '
 var linearFunction = function(x, b_0, b_1){
-  return b_1*x + b_0
+  return b_0 + b_1*x
 }
 
 var model = function() {
@@ -167,68 +149,40 @@ res %>%
 
 ### Gibson & Wu (2012) -- Random intercepts
 
-The problem with a pure fixed-effects model in this data set is that our observations are clustered in a natural way: we suspect that multiple observations from the same person or for the same item may be correlated. This violates the assumption of uncorrelated errors we made above. For example, some people may just be slower than other people, or some items may just be harder. To account for this variance, we add subject-level and item-level intercepts. 
+The problem with a pure fixed-effects model in this data set is that our observations are clustered in a natural way: we suspect that multiple observations from the same person or for the same item may be correlated. This violates the assumption of uncorrelated noise we made above. For example, some people may just be slower than other people, or some items may just be harder. To account for this variance, we add subject-level and item-level intercepts. 
 
 Note that the Bayesian approach explicitly uses a generative model. Try writing the graphical model for this model. We start with sigmas giving the variability across the different intercepts, sample a set of intercepts with these sigmas, sample a set of fixed effects, and get a score for how likely the actual data would be with this set of choices. Over many samples, we can find distributions of values that make the data most likely, given our (relatively uninformative) priors.
 
 
 ```{r}
-varyingInterceptModel <- '
-// TODO: extract this cleanly from the data...
-var numSubjects = 37;
-var numItems = 15;
+numSamples = 500
 
-var model = function() {
-  // Fixed slope & intercept 
-  var b_0 = sample(UniformDrift({a: 3, b: 8, r:.05}))
-  var b_1 = sample(UniformDrift({a: -3, b: 3, r:.05}))
+# if it runs with acc. ratio = 0.5 (or ratio = 1) for more than 100 iterations
+# kill it and retry
 
-  // Error sd
-  var sigma_error = sample(UniformDrift({a: 0, b: 1, r:.01}))
+res <- webppl(
+    program_file = "webppl_models/varyingIntercepts.wppl",
+    data = GibsonWuData,
+    data_var = "observed_data",
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 5,
+                                           stepSize = 0.015)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+  )
 
-  // Subject intercepts
-  var sigma_subj = sample(UniformDrift({a: 0, b: 1, r:.01}))
-  var subj_intercepts = repeat(numSubjects, function() {
-    return sample(Gaussian({mu: 0, sigma: sigma_subj}))
-  })
-
-  // Item intercepts
-  var sigma_item = sample(UniformDrift({a: 0, b: 1, r:.01}))
-  var item_intercepts = repeat(numItems, function() {
-    return sample(Gaussian({mu: 0, sigma: sigma_item}))
-  })
-
-  foreach(observed_data, function(dataPoint){
-    var subjIntercept = subj_intercepts[dataPoint["subj"] - 1]
-    var itemIntercept = item_intercepts[dataPoint["item"] - 1]
-    var x = dataPoint["so"];
-    var y = Math.log(dataPoint["rt"]);
-    var predictedY = (b_0 + subjIntercept + itemIntercept) + b_1 * x
-    observe({
-      data: y,
-      link: Gaussian({mu: predictedY, sigma: sigma_error})
-    })
-  })
-
-  return {b_0: b_0, b_1: b_1, 
-          sigma_error: sigma_error,
-          sigma_item : sigma_item,
-          sigma_subj : sigma_subj};
-}
-'
-
-numSamples = 50000
-
-res <- runModelMCMC(varyingInterceptModel, GibsonWuData, 
-                    numSamples = numSamples)
-
-res %>%
+wp %>%
   gather(parameter, value) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
-res %>% 
+wp %>% 
   gather(parameter, value) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
