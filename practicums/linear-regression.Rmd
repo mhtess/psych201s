@@ -31,7 +31,7 @@ HPDlo<- function(s){
 runModelMCMC <- function(model, data_to_webppl, 
                          numSamples = 50000) {
   wp <- webppl(
-    program_code = model,
+    program_file = model,
     data = data_to_webppl,
     data_var = "observed_data", 
     inference_opts = list(method="MCMC", 
@@ -46,35 +46,13 @@ runModelMCMC <- function(model, data_to_webppl,
 
 ```
 
+# Linear regression
+
 ```{r}
-
-model1 <- '
-var linearFunction = function(m, x, b){
-  return m*x + b
-}
-
-var model = function() {
-  var m = gaussian(0, 10)
-  var b = gaussian(0, 10)
-  var sigma = uniform(0, 20)
-
-  foreach(observed_data, function(dataPoint){
-    var x = dataPoint["x"];
-    var y = dataPoint["y"];
-    var predictedY = linearFunction(m, x, b)
-    observe({
-      data: y,
-      link: Gaussian({mu: predictedY, sigma: sigma})
-    })
-  })
-
-  return {m: m, b: b, sigma: sigma};
-}
-'
-
 numSamples = 50000
 observed_data <- data.frame(x = c(0,1,2,3), y = c(0,1,4,6));
-res <- runModelMCMC(model1, observed_data, numSamples = numSamples) 
+res <- runModelMCMC("webppl_models/linearRegression.wppl", 
+                    observed_data, numSamples = numSamples) 
 
 res %>%
   gather(parameter, value) %>%
@@ -89,6 +67,46 @@ res %>%
             md_lo = round(HPDlo(value), 3),
             md_hi = round(HPDhi(value), 3))
 ```
+
+
+# Logistic regression
+
+In psychology, our dependent meaures are often *categorical* (e.g., did the participant behave prosocially vs. not? did the child interpret the evidence pragmatically vs. not? ...). For these problems, a special type of regression model is used: logistic regression (also called logit regression, which is somewhat funny because the logit function is the opposite of the logistic function).
+
+You should be familiar with the [logistic function](https://en.wikipedia.org/wiki/Logistic_function), as it is very often used in modeling (no less in logistic regression). (It is also called a sigmoid function). It is an S-shaped curve, and it is a mapping from the real numbers (which can range from -Infinity to +Infinity) to numbers between 0 - 1 (aka probabilities). The opposite of the logistic function is a [logit function](https://en.wikipedia.org/wiki/Logit).
+
+```{r}
+'var xs = [-10, -5, 2, 6, 10]
+var labels = [false, false, true, true, true]
+
+var model = function() {
+  var m = gaussian(0, 1)
+  var b = gaussian(0, 1)
+  var sigma = gamma(1, 1)
+
+  var y = function(x) {
+    return gaussian(m * x + b, sigma)
+  }
+
+  var sigmoid = function(x) {
+    return 1 / (1 + Math.exp(-1 * y(x)))
+  }
+
+  map2(
+      function(x, label) {
+        factor(Bernoulli({p: sigmoid(x)}).score(label))
+      },
+      xs,
+      labels)
+
+  return sigmoid(8)
+}
+'
+```
+
+
+
+
 
 ### Gibson & Wu (2012) -- Fixed effects
 
@@ -188,36 +206,5 @@ wp %>%
   summarize(mode = estimate_mode(value),
             md_lo = round(HPDlo(value), 3),
             md_hi = round(HPDhi(value), 3))
-```
-
-
-
-```{r}
-'var xs = [-10, -5, 2, 6, 10]
-var labels = [false, false, true, true, true]
-
-var model = function() {
-  var m = gaussian(0, 1)
-  var b = gaussian(0, 1)
-  var sigma = gamma(1, 1)
-
-  var y = function(x) {
-    return gaussian(m * x + b, sigma)
-  }
-
-  var sigmoid = function(x) {
-    return 1 / (1 + Math.exp(-1 * y(x)))
-  }
-
-  map2(
-      function(x, label) {
-        factor(Bernoulli({p: sigmoid(x)}).score(label))
-      },
-      xs,
-      labels)
-
-  return sigmoid(8)
-}
-'
 ```
 

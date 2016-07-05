@@ -1,0 +1,21 @@
+var model = function() {
+  var m = gaussian(0, 10);
+  var b = gaussian(0, 10);
+  var sigma = uniform(0, 20);
+
+  var linearFunction = function(x){
+     return m*x + b;
+  };
+
+  foreach(observed_data, function(dataPoint){
+    var x = dataPoint["x"];
+    var y = dataPoint["y"];
+    var predictedY = linearFunction(x);
+    observe({
+      data: y,
+      link: Gaussian({mu: predictedY, sigma: sigma})
+    });
+  });
+
+  return {m: m, b: b, sigma: sigma};
+};
