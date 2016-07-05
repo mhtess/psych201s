@@ -1,3 +1,7 @@
+var logisticFunction = function(y) {
+   return 1 / (1 + exp(-y));
+};
+
 var model = function() {
   var m = sample(GaussianDrift({mu:0, sigma:10}));
   var b = sample(GaussianDrift({mu:0, sigma:10}));
@@ -11,9 +15,11 @@ var model = function() {
     var x = dataPoint["x"];
     var y = dataPoint["y"];
     var predictedY = linearFunction(x);
+    var predictedY_withNoise = sample(Gaussian({mu:predictedY, sigma: sigma}));
+    var logistic_Y = logisticFunction(predictedY_withNoise);
     observe({
       data: y,
-      link: Gaussian({mu: predictedY, sigma: sigma})
+      link: Bernoulli({p: logistic_Y})
     });
   });
 

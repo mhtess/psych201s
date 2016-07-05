@@ -56,6 +56,8 @@ res <- runModelMCMC("webppl_models/linearRegression.wppl",
 
 res %>%
   gather(parameter, value) %>%
+  mutate(parameter = factor(parameter, 
+                            levels = c("intercept", "slope", "noise"))) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
@@ -76,32 +78,27 @@ In psychology, our dependent meaures are often *categorical* (e.g., did the part
 You should be familiar with the [logistic function](https://en.wikipedia.org/wiki/Logistic_function), as it is very often used in modeling (no less in logistic regression). (It is also called a sigmoid function). It is an S-shaped curve, and it is a mapping from the real numbers (which can range from -Infinity to +Infinity) to numbers between 0 - 1 (aka probabilities). The opposite of the logistic function is a [logit function](https://en.wikipedia.org/wiki/Logit).
 
 ```{r}
-'var xs = [-10, -5, 2, 6, 10]
-var labels = [false, false, true, true, true]
+numSamples = 50000
 
-var model = function() {
-  var m = gaussian(0, 1)
-  var b = gaussian(0, 1)
-  var sigma = gamma(1, 1)
+observed_data <- data.frame(x = c(0,1,2,3), y = c(T,T,F,F));
 
-  var y = function(x) {
-    return gaussian(m * x + b, sigma)
-  }
+res <- runModelMCMC("webppl_models/logisticRegression.wppl", 
+                    observed_data, numSamples = numSamples)
 
-  var sigmoid = function(x) {
-    return 1 / (1 + Math.exp(-1 * y(x)))
-  }
+res %>%
+  gather(parameter, value) %>%
+  mutate(parameter = factor(parameter, 
+                            levels = c("intercept", "slope", "noise"))) %>%
+  ggplot(aes(x = value))+
+    geom_histogram()+
+    facet_wrap(~parameter, scales = 'free')
 
-  map2(
-      function(x, label) {
-        factor(Bernoulli({p: sigmoid(x)}).score(label))
-      },
-      xs,
-      labels)
-
-  return sigmoid(8)
-}
-'
+res %>% 
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(mode = estimate_mode(value),
+            md_lo = round(HPDlo(value), 3),
+            md_hi = round(HPDhi(value), 3))
 ```
 
 
