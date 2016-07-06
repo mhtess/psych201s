@@ -102,9 +102,6 @@ res %>%
 ```
 
 
-
-
-
 ### Gibson & Wu (2012) -- Fixed effects
 
 Now that we understand a what a simple linear regression looks like from a Bayesian viewpoint, we are ready to turn to the mixed-model example from Sorensen et al (2016). In this tutorial, we build up a progressively more complex Bayesian mixed-effects model on a real-world data set. 
