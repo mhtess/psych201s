@@ -206,7 +206,7 @@ modelVsData <- res %>%
 ggplot(modelVsData, aes(x = MAP,  y = log(rt), group = type)) +
   geom_point(aes(color = type)) +
   ylab("empirical RT") +
-  xlab("RT predicted by model") +
+  xlab("model predictive (MAP)") +
   theme_bw() 
 ```
 
@@ -243,16 +243,48 @@ res <- webppl(
     packages = c("./utils")
   )
 
-wp %>%
-  gather(parameter, value) %>%
+res %>%
+  gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
-wp %>% 
-  gather(parameter, value) %>%
+res %>% 
+  gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
             md_lo = round(HPDlo(value), 3),
             md_hi = round(HPDhi(value), 3))
+
 ```
+
+```{r}
+modelVsData <- res %>%
+  select(-sigma_error, -sigma_item, -sigma_subj, -b_0, -b_1) %>%
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(MAP = estimate_mode(value)) %>%
+#           credHigh = HPDhi(value),
+#           credLow = HPDlo(value))
+  mutate(rowNum = as.integer(substr(parameter, 2, 5))) %>%
+  left_join(GibsonWuData, by = c("rowNum")) 
+
+ggplot(modelVsData, aes(x = MAP,  y = log(rt))) +
+  geom_point(aes(color = type)) +
+  geom_abline(linetype = 2, slope = 1, intercept = 0) +
+  geom_smooth(method = "lm") +
+  ylab("empirical RT") +
+  xlab("model predictive (MAP)") +
+  theme_bw() 
+```
+
+Not bad! The dotted line indicates the values where the model posterior predictive is equal to the empirical value. A good model will make predictions as close to this line as possible, and we see that that most of our points are clustered around the line at least. What makes this a better fit than the fixed effects model above? Do you think it's fair to interpret the effect of red vs. blue in this model? 
+
+```{r}
+library(lme4)
+contrasts(GibsonWuData$type) <- 
+summary(lmer(log(rt) ~ so + (1 | subj) + (1 | item), data = GibsonWuData))
+```
+
+Compare the table of modes and credible intervals you made above with this lmer output: what do the sigmas correspond to? What do b_0 and b_1 correspond to? 
+

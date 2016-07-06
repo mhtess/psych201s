@@ -27,14 +27,16 @@ var model = function() {
     var x = dataPoint["so"];
     var y = Math.log(dataPoint["rt"]);
     var predictedY = (b_0 + subjIntercept + itemIntercept) + b_1 * x;
+    query.add("y" + dataPoint["rowNum"], predictedY);
     return Gaussian({mu: predictedY, sigma: sigma_error}).score(y);
   }, observed_data);
 
   factor(sum(scrs));
-
-  return {b_0: b_0, 
-          b_1: b_1, 
-          sigma_error: sigma_error,
-          sigma_item : sigma_item,
-          sigma_subj : sigma_subj};
+  
+  query.add("b_0", b_0)
+  query.add("b_1", b_1)
+  query.add("sigma_error", sigma_error)
+  query.add("sigma_item", sigma_item)
+  query.add("sigma_subj", sigma_subj)
+  return query
 };
