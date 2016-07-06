@@ -93,10 +93,9 @@ In psychology, our dependent meaures are often *categorical* (e.g., did the part
 You should be familiar with the [logistic function](https://en.wikipedia.org/wiki/Logistic_function), as it is very often used in modeling (no less in logistic regression). (It is also called a sigmoid function). It is an S-shaped curve, and it is a mapping from the real numbers (which can range from -Infinity to +Infinity) to numbers between 0 - 1 (aka probabilities). The opposite of the logistic function is a [logit function](https://en.wikipedia.org/wiki/Logit).
 
 ```{r}
-numSamples = 50000
+numSamples = 500000
 
-observed_data <- data.frame(x = c(0,1,2,3), y = c(T,T,F,F))
-
+observed_data <- data.frame(x = c(1,2,3,4), y = c(T,T,F,F))
 res <- runModelMCMC("webppl_models/logisticRegression.wppl", 
                     observed_data, numSamples = numSamples)
 
@@ -116,27 +115,43 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
-Visualize predictives
+The estimated intercept gives us the log odds that 0 will be T. This can be easier to think about in terms of the *regular* odds, so we exponentiate the value. Since the intercept is very large, `exp(intercept)` will be massive, meaning the odds are exceedingly in favor of 0 being T (though note that 0 doesn't appear in our tiny dataset, so this is hypothetical)! 
+
+The estimated slope gives us the change in log odds for a 1-unit change in x. Note that most of our posterior for the slope is negative, hence we expect to see a dramatic *decrease* in the odds of being T as x increases. 
+
+# Visualize predictives
 
 ```{r}
-sample_n(res, 80) %>%
-  ggplot() +
-  geom_abline(aes(intercept = intercept, slope = slope), alpha = .5) +
-  geom_point(aes(x = rep(observed_data$x, 20), 
-                 y = rep(observed_data$y, 20)), 
-                 size = 10, color = "red") +
-  ylab("y") +
-  xlab("x") +
-  xlim(-2, 8) +
-  ylim(-2, 8) +
-  theme_bw() 
+
+logisticFunction <- function(x) {
+   return(1 / (1 + exp(-x)));
+};
+
+# TODO: find better way of plotting sigmoidal predictives... 
+resSubsamples <- sample_n(res, 700)
+g <- ggplot(observed_data, aes(x = x, y = as.integer(y))) + theme_bw()
+xs = seq(0, 5, 0.01) 
+for(i in 1:dim(resSubsamples)[1]) {
+  row <- resSubsamples[i,]
+  slope <- as.numeric(row["slope"])
+  intercept <- as.numeric(row["intercept"])
+  predicted_ys = intercept + slope * xs
+  transformed_ys = logisticFunction(predicted_ys)
+  g <- g + geom_line(data = data.frame(x = xs, y = transformed_ys),
+                aes(x = x, y = y), alpha = .2)
+}
+g + geom_point(size = 10, color = "red") 
 ```
+
+Indeed, we see that while there is quite a bit of variability in our posterior predictive, most of the logistic curves are going from positive to negative very rapidly, and this is most often happening between x = 2 and x = 3, corresponding to the cutpoint we see in our data.
 
 Compare to:
 
 ```{r}
 summary(glm(y ~ x, data = observed_data, family = 'binomial'))
 ```
+
+This gives qualitatively similar estimates, though our dataset is too small for `glm` techniques to give reliable estimates (our priors, however uninformative, help solve this problem for us above -- our slopes and intercepts are constrained to be within an interval)
 
 ### Gibson & Wu (2012) -- Fixed effects
 
