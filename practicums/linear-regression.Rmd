@@ -115,9 +115,20 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
-The estimated intercept gives us the log odds that 0 will be T. This can be easier to think about in terms of the *regular* odds, which we can get by exponentiating the value. Since the estimated intercept is very large, `exp(intercept)` will be massive, meaning the odds are exceedingly in favor of 0 being T! 
+Recall that our regression parameters had to be passed through a logistic function in order to make contact with our data. Another way we could have done this is to pass our data through the logit function. (Logit is the inverse of logisitic.) From this way of looking at it, the regression parameters are logit-transforms from the data-space. Recall, `logit(p) = log(p / (1-p))`.
 
-The estimated slope gives us the *change in log odds for a 1-unit change in x*. Note that our posterior estimate for the slope is highly negative, hence we expect to see a dramatic *decrease* in the odds of being T as x increases. 
+The estimated intercept gives us the logarithm of the probability that 0 will be T divided by the probabiltiy that 0 will be F. (We're talking about 0 because this is the intercept). The ratio of probabilities is called the *odds*, and the logarithm of this ratio is called the *log odds*. The parameters are easier to interpret in terms of the odds, which we can get by exponentiating the value. 
+
+The MAP estimate of the intercept (i.e., the mode) is very large, and so `exp(intercept)` will be massive, meaning the odds are exceedingly in favor of 0 being T! But notice that the credible interval ranges from about -70 to 200. `exp(-70)` will be super small, meaning that the odds are strongly in favor of 0 being F. Examine `observed_data` and explain why this is.
+
+...
+
+The estimated slope gives us the *change in log odds for a 1-unit change in x*. Again, we will want to `exp(...)` this number to get the odds ratio. Note that our posterior estimate for the slope is highly negative, hence we expect to see a dramatic *decrease* in the odds of being T as x increases. Do you understand why this is true?
+
+We have a lot more uncertainty about the intercept than about the slope, at least in terms of the *qualitative* direction (i.e., > or < 0). Why do you think that is?
+
+...
+
 
 # Visualize predictives
 
