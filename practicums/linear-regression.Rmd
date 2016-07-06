@@ -49,7 +49,7 @@ runModelMCMC <- function(model, data_to_webppl,
 # Linear regression
 
 ```{r}
-numSamples = 50000
+numSamples = 500000
 observed_data <- data.frame(x = c(0,1,2,3), y = c(0,1,4,6));
 res <- runModelMCMC("webppl_models/linearRegression.wppl", 
                     observed_data, numSamples = numSamples) 
@@ -70,6 +70,21 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
+Visualize predictives
+
+```{r}
+ggplot(observed_data, aes(x = x,  y = y)) +
+  geom_abline(data = sample_n(res, 400), 
+              aes(intercept = intercept, slope = slope),
+              alpha = .1) +
+  geom_point(size = 10, color = "red") +
+  geom_smooth(method = "lm", se = F, size = 2, color = "green") +
+  ylab("y") +
+  xlab("x") +
+  xlim(-2, 8) +
+  ylim(-2, 8) +
+  theme_bw() 
+```
 
 # Logistic regression
 
@@ -80,7 +95,7 @@ You should be familiar with the [logistic function](https://en.wikipedia.org/wik
 ```{r}
 numSamples = 50000
 
-observed_data <- data.frame(x = c(0,1,2,3), y = c(T,T,F,F));
+observed_data <- data.frame(x = c(0,1,2,3), y = c(T,T,F,F))
 
 res <- runModelMCMC("webppl_models/logisticRegression.wppl", 
                     observed_data, numSamples = numSamples)
@@ -101,9 +116,27 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
+Visualize predictives
 
+```{r}
+sample_n(res, 80) %>%
+  ggplot() +
+  geom_abline(aes(intercept = intercept, slope = slope), alpha = .5) +
+  geom_point(aes(x = rep(observed_data$x, 20), 
+                 y = rep(observed_data$y, 20)), 
+                 size = 10, color = "red") +
+  ylab("y") +
+  xlab("x") +
+  xlim(-2, 8) +
+  ylim(-2, 8) +
+  theme_bw() 
+```
 
+Compare to:
 
+```{r}
+summary(glm(y ~ x, data = observed_data, family = 'binomial'))
+```
 
 ### Gibson & Wu (2012) -- Fixed effects
 
