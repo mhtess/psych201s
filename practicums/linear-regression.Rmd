@@ -10,6 +10,7 @@ library(ggplot2)
 library(tidyr)
 library(dplyr)
 library(coda)
+library(lme4)
 
 setwd("~/Repos/psych201s/practicums")
 
@@ -168,7 +169,7 @@ Now that we understand a what a simple linear regression looks like from a Bayes
 
 The simplest model is a purely fixed effects model, where we assume that all data points are independent (i.e. have uncorrelated noise). The only additional change from the model above is that we assume reaction times are *log-normal*, meaning that the logarithm of the reaction times follows a normal distribution. We do this simply by taking the log of the input reaction times. 
 
-(Note that for this data set, where each individual gives responses for many different items, a purely fixed-effects model will be a bad assumption. We will handle correlated errors in a mixed-model further below.)
+Note that in this data set, each individual gives responses for many different items. Only taking into account fixed-effects might be a bad assumption. We will explore taking into account random-effects later.
 
 ```{r}
 numSamples = 10000
@@ -180,16 +181,27 @@ GibsonWuData = read.table("../data/gibsonwu2012data.txt", header = T) %>%
   mutate(rowNum = row_number()) %>%
   select(rowNum, subj, item, so, type, rt)
 
-res <- runModelMCMC("webppl_models/fixedEffects.wppl", 
+
+ggplot(GibsonWuData, aes(x = rt, fill = type))+
+  geom_histogram(position = position_dodge())#+
+  #xlim(0, 2000)
+
+ggplot(GibsonWuData, aes(x = log(rt), fill = type))+
+  geom_histogram(position = position_dodge())
+```
+
+
+```{r}
+res.fixed <- runModelMCMC("webppl_models/fixedEffects.wppl", 
                     GibsonWuData, numSamples = numSamples)
 
-res %>%
+res.fixed %>%
   gather(parameter, value, b_0, b_1, sigma) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
-res %>% 
+res.fixed %>% 
   gather(parameter, value, b_0, b_1, sigma) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
@@ -202,7 +214,7 @@ res %>%
 To evaluate how well our model fits the data, we plot the MAP estimate of our model's posterior predictions on the x axis with the original data on the y axis. 
 
 ```{r}
-modelVsData <- res %>%
+modelVsData <- res.fixed %>%
   select(-sigma, -b_0, -b_1) %>%
   gather(parameter, value) %>%
   group_by(parameter) %>%
@@ -210,7 +222,7 @@ modelVsData <- res %>%
 #           credHigh = HPDhi(value),
 #           credLow = HPDlo(value))
   mutate(rowNum = as.integer(substr(parameter, 2, 5))) %>%
-  left_join(GibsonWuData, by = c("rowNum")) 
+  left_join(GibsonWuData, by = c("rowNum"))
 
 ggplot(modelVsData, aes(x = MAP,  y = log(rt), group = type)) +
   geom_point(aes(color = type)) +
@@ -225,9 +237,8 @@ Note, however, that there's an enormous amount of variability within these two g
 
 ### Gibson & Wu (2012) -- Random intercepts
 
-The problem with a pure fixed-effects model in this data set is that our observations are clustered in a natural way: we suspect that multiple observations from the same person or for the same item may be correlated. This violates the assumption of uncorrelated noise we made above. For example, some people may just be slower than other people, or some items may just be harder. To account for this variance, we add subject-level and item-level intercepts. 
+The problem with a pure fixed-effects model in this data set is that our observations are probably clustered in an obvious way: multiple observations from the same participant or for the same item may be correlated. Above, we assumed the noise in responses was sampled from a single Gaussian distribution (thus, our observations were independent, or we had uncorrelated noise). But some people may just be slower than other people, or some items may just be harder. To account for this variance, we move to the land of mixed- models: adding subject-level and item-level intercepts. 
 
-Note that the Bayesian approach explicitly uses a generative model. Try writing the graphical model for this model. We start with sigmas giving the variability across the different intercepts, sample a set of intercepts with these sigmas, sample a set of fixed effects, and get a score for how likely the actual data would be with this set of choices. Over many samples, we can find distributions of values that make the data most likely, given our (relatively uninformative) priors.
 
 ```{r}
 numSamples = 500
@@ -235,7 +246,7 @@ numSamples = 500
 # if it runs with acc. ratio = 0.5 (or ratio = 1) for more than 100 iterations
 # kill it and retry
 
-res <- webppl(
+res.mixed <- webppl(
     program_file = "webppl_models/varyingIntercepts.wppl",
     data = GibsonWuData,
     data_var = "observed_data",
@@ -251,13 +262,13 @@ res <- webppl(
     packages = c("./utils")
   )
 
-res %>%
+res.mixed %>%
   gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
-res %>% 
+res.mixed %>% 
   gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
@@ -266,10 +277,12 @@ res %>%
 
 ```
 
+Note that the Bayesian approach explicitly uses a generative model. Try writing the graphical model for this model.
+
 # Plot predictives
 
 ```{r}
-modelVsData <- res %>%
+modelVsData <- res.mixed %>%
   select(-sigma_error, -sigma_item, -sigma_subj, -b_0, -b_1) %>%
   gather(parameter, value) %>%
   group_by(parameter) %>%
@@ -281,10 +294,10 @@ modelVsData <- res %>%
 
 ggplot(modelVsData, aes(x = MAP,  y = log(rt))) +
   geom_point(aes(color = type)) +
-  geom_abline(linetype = 2, slope = 1, intercept = 0) +
-  geom_smooth(method = "lm") +
+ # geom_smooth(method = "lm") +
+  geom_abline(slope = 1, intercept = 0, linetype = 2)+
   ylab("empirical RT") +
-  xlab("model predictive (MAP)") +
+  xlab("model posterior predictive (MAP)") +
   theme_bw() 
 ```
 
@@ -294,7 +307,7 @@ Not bad! The dotted line indicates the values where the model posterior predicti
 
 ```{r}
 library(lme4)
-contrasts(GibsonWuData$type) <- 
+contrasts(GibsonWuData$type)
 summary(lmer(log(rt) ~ so + (1 | subj) + (1 | item), data = GibsonWuData))
 ```
 
