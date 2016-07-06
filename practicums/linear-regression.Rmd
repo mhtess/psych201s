@@ -306,8 +306,6 @@ Not bad! The dotted line indicates the values where the model posterior predicti
 # Compare to lmer 
 
 ```{r}
-library(lme4)
-contrasts(GibsonWuData$type)
 summary(lmer(log(rt) ~ so + (1 | subj) + (1 | item), data = GibsonWuData))
 ```
 
