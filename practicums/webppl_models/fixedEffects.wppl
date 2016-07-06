@@ -1,0 +1,27 @@
+var linearFunction = function(x, b_0, b_1){
+  return b_0 + b_1*x
+}
+
+var model = function() {
+  var b_0 = sample(UniformDrift({a: -10, b: 10, r:.1}));
+  var b_1 = sample(UniformDrift({a: -10, b: 10, r:.1}));
+  var sigma = sample(UniformDrift({a: 0, b: 10, r:.1}));
+
+  // Save predictives as we go
+  globalStore.predictedYs = []
+  foreach(observed_data, function(dataPoint){
+    var x = dataPoint["so"];
+    var y = Math.log(dataPoint["rt"]);
+    var predictedY = linearFunction(x, b_0, b_1);
+    query.add("y" + dataPoint["rowNum"], predictedY);
+    observe({
+      data: y,
+      link: Gaussian({mu: predictedY, sigma: sigma})
+    });
+  });
+
+  query.add("b_0", b_0);
+  query.add("b_1", b_1);
+  query.add("sigma", sigma)
+  return query;
+};

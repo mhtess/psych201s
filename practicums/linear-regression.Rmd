@@ -49,7 +49,7 @@ runModelMCMC <- function(model, data_to_webppl,
 # Linear regression
 
 ```{r}
-numSamples = 50000
+numSamples = 500000
 observed_data <- data.frame(x = c(0,1,2,3), y = c(0,1,4,6));
 res <- runModelMCMC("webppl_models/linearRegression.wppl", 
                     observed_data, numSamples = numSamples) 
@@ -70,6 +70,21 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
+Visualize predictives
+
+```{r}
+ggplot(observed_data, aes(x = x,  y = y)) +
+  geom_abline(data = sample_n(res, 400), 
+              aes(intercept = intercept, slope = slope),
+              alpha = .1) +
+  geom_point(size = 10, color = "red") +
+  geom_smooth(method = "lm", se = F, size = 2, color = "green") +
+  ylab("y") +
+  xlab("x") +
+  xlim(-2, 8) +
+  ylim(-2, 8) +
+  theme_bw() 
+```
 
 # Logistic regression
 
@@ -78,10 +93,9 @@ In psychology, our dependent meaures are often *categorical* (e.g., did the part
 You should be familiar with the [logistic function](https://en.wikipedia.org/wiki/Logistic_function), as it is very often used in modeling (no less in logistic regression). (It is also called a sigmoid function). It is an S-shaped curve, and it is a mapping from the real numbers (which can range from -Infinity to +Infinity) to numbers between 0 - 1 (aka probabilities). The opposite of the logistic function is a [logit function](https://en.wikipedia.org/wiki/Logit).
 
 ```{r}
-numSamples = 50000
+numSamples = 100000
 
-observed_data <- data.frame(x = c(0,1,2,3), y = c(T,T,F,F));
-
+observed_data <- data.frame(x = seq(-5,5), y = c(T,T,T,T,T,F,T,F,F,F,F))
 res <- runModelMCMC("webppl_models/logisticRegression.wppl", 
                     observed_data, numSamples = numSamples)
 
@@ -101,6 +115,41 @@ res %>%
             md_hi = round(HPDhi(value), 3))
 ```
 
+The estimated intercept gives us the log odds that 0 will be T. This can be easier to think about in terms of the *regular* odds, which we can get by exponentiating the value. Since the estimated intercept is very large, `exp(intercept)` will be massive, meaning the odds are exceedingly in favor of 0 being T! 
+
+The estimated slope gives us the *change in log odds for a 1-unit change in x*. Note that our posterior estimate for the slope is highly negative, hence we expect to see a dramatic *decrease* in the odds of being T as x increases. 
+
+# Visualize predictives
+
+
+```{r}
+logisticFunction <- function(x) {
+   return(1 / (1 + exp(-x)));
+};
+
+# TODO: find better way of plotting sigmoidal predictives... 
+resSubsamples <- sample_n(res, 500)
+g <- ggplot(observed_data, aes(x = x, y = as.integer(y))) + theme_bw()
+xs = seq(-6, 6, 0.01) 
+for(i in 1:dim(resSubsamples)[1]) {
+  row <- resSubsamples[i,]
+  slope <- as.numeric(row["slope"])
+  intercept <- as.numeric(row["intercept"])
+  predicted_ys = intercept + slope * xs
+  transformed_ys = logisticFunction(predicted_ys)
+  g <- g + geom_line(data = data.frame(x = xs, y = transformed_ys),
+                aes(x = x, y = y), alpha = .2)
+}
+g + geom_point(size = 10, color = "red") 
+```
+
+Indeed, we see that while there is quite a bit of variability in our posterior predictive, most of the logistic curves are going from positive to negative very rapidly, and this is most often happening between x = 0 and x = 2, corresponding to the cutpoint we see in our data.
+
+Compare to:
+
+```{r}
+summary(glm(y ~ x, data = observed_data, family = 'binomial'))
+```
 
 ### Gibson & Wu (2012) -- Fixed effects
 
@@ -111,60 +160,63 @@ The simplest model is a purely fixed effects model, where we assume that all dat
 (Note that for this data set, where each individual gives responses for many different items, a purely fixed-effects model will be a bad assumption. We will handle correlated errors in a mixed-model further below.)
 
 ```{r}
-fixedEffectModel <- '
-var linearFunction = function(x, b_0, b_1){
-  return b_0 + b_1*x
-}
-
-var model = function() {
-  var b_0 = sample(UniformDrift({a: -10, b: 10, r:.1}))
-  var b_1 = sample(UniformDrift({a: -10, b: 10, r:.1}))
-  var sigma = sample(UniformDrift({a: 0, b: 10, r:.1}))
-
-  foreach(observed_data, function(dataPoint){
-    var x = dataPoint["so"];
-    var y = Math.log(dataPoint["rt"]);
-    var predictedY = linearFunction(x, b_0, b_1)
-    observe({
-      data: y,
-      link: Gaussian({mu: predictedY, sigma: sigma})
-    })
-  })
-
-  return {b_0: b_0, b_1: b_1, sigma: sigma};
-}
-'
-
 numSamples = 10000
 GibsonWuData = read.table("../data/gibsonwu2012data.txt", header = T) %>%
   filter(region == "headnoun") %>%
   mutate(subj = as.integer(factor(subj)),
          item = as.integer(factor(item)),
          so = ifelse(type == "subj-ext", -1, 1)) %>%
-  select(subj, item, so, rt)
+  mutate(rowNum = row_number()) %>%
+  select(rowNum, subj, item, so, type, rt)
 
-res <- runModelMCMC(fixedEffectModel, GibsonWuData, numSamples = numSamples)
+res <- runModelMCMC("webppl_models/fixedEffects.wppl", 
+                    GibsonWuData, numSamples = numSamples)
 
 res %>%
-  gather(parameter, value) %>%
+  gather(parameter, value, b_0, b_1, sigma) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
 res %>% 
-  gather(parameter, value) %>%
+  gather(parameter, value, b_0, b_1, sigma) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
             md_lo = round(HPDlo(value), 3),
             md_hi = round(HPDhi(value), 3))
 ```
 
+# Predictives
+
+To evaluate how well our model fits the data, we plot the MAP estimate of our model's posterior predictions on the x axis with the original data on the y axis. 
+
+```{r}
+modelVsData <- res %>%
+  select(-sigma, -b_0, -b_1) %>%
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(MAP = estimate_mode(value)) %>%
+#           credHigh = HPDhi(value),
+#           credLow = HPDlo(value))
+  mutate(rowNum = as.integer(substr(parameter, 2, 5))) %>%
+  left_join(GibsonWuData, by = c("rowNum")) 
+
+ggplot(modelVsData, aes(x = MAP,  y = log(rt), group = type)) +
+  geom_point(aes(color = type)) +
+  ylab("empirical RT") +
+  xlab("model predictive (MAP)") +
+  theme_bw() 
+```
+
+Our model has a fixed intercept of 6.02, which we see is the grand mean (because we used effect coding). Additionally, the `subj-ext` group is predicted to have a slightly higher RT than the `obj-ext` group. 
+
+Note, however, that there's an enormous amount of variability within these two groups that we aren't capturing. 
+
 ### Gibson & Wu (2012) -- Random intercepts
 
 The problem with a pure fixed-effects model in this data set is that our observations are clustered in a natural way: we suspect that multiple observations from the same person or for the same item may be correlated. This violates the assumption of uncorrelated noise we made above. For example, some people may just be slower than other people, or some items may just be harder. To account for this variance, we add subject-level and item-level intercepts. 
 
 Note that the Bayesian approach explicitly uses a generative model. Try writing the graphical model for this model. We start with sigmas giving the variability across the different intercepts, sample a set of intercepts with these sigmas, sample a set of fixed effects, and get a score for how likely the actual data would be with this set of choices. Over many samples, we can find distributions of values that make the data most likely, given our (relatively uninformative) priors.
-
 
 ```{r}
 numSamples = 500
@@ -188,17 +240,52 @@ res <- webppl(
     packages = c("./utils")
   )
 
-wp %>%
-  gather(parameter, value) %>%
+res %>%
+  gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   ggplot(aes(x = value))+
     geom_histogram()+
     facet_wrap(~parameter, scales = 'free')
 
-wp %>% 
-  gather(parameter, value) %>%
+res %>% 
+  gather(parameter, value, b_0, b_1, sigma_error, sigma_item, sigma_subj) %>%
   group_by(parameter) %>%
   summarize(mode = estimate_mode(value),
             md_lo = round(HPDlo(value), 3),
             md_hi = round(HPDhi(value), 3))
+
 ```
+
+# Plot predictives
+
+```{r}
+modelVsData <- res %>%
+  select(-sigma_error, -sigma_item, -sigma_subj, -b_0, -b_1) %>%
+  gather(parameter, value) %>%
+  group_by(parameter) %>%
+  summarize(MAP = estimate_mode(value)) %>%
+#           credHigh = HPDhi(value),
+#           credLow = HPDlo(value))
+  mutate(rowNum = as.integer(substr(parameter, 2, 5))) %>%
+  left_join(GibsonWuData, by = c("rowNum")) 
+
+ggplot(modelVsData, aes(x = MAP,  y = log(rt))) +
+  geom_point(aes(color = type)) +
+  geom_abline(linetype = 2, slope = 1, intercept = 0) +
+  geom_smooth(method = "lm") +
+  ylab("empirical RT") +
+  xlab("model predictive (MAP)") +
+  theme_bw() 
+```
+
+Not bad! The dotted line indicates the values where the model posterior predictive is equal to the empirical value. A good model will make predictions as close to this line as possible, and we see that that most of our points are clustered around the line at least. What makes this a better fit than the fixed effects model above? Do you think it's fair to interpret the effect of red vs. blue in this model? 
+
+# Compare to lmer 
+
+```{r}
+library(lme4)
+contrasts(GibsonWuData$type) <- 
+summary(lmer(log(rt) ~ so + (1 | subj) + (1 | item), data = GibsonWuData))
+```
+
+Compare the table of modes and credible intervals you made above with this lmer output: what do the sigmas correspond to? What do b_0 and b_1 correspond to? 
 

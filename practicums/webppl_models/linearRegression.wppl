@@ -1,7 +1,7 @@
 var model = function() {
-  var m = sample(GaussianDrift({mu:0, sigma:10}));
-  var b = sample(GaussianDrift({mu:0, sigma:10}));
-  var sigma = sample(UniformDrift({a:0, b:10, r:2}));
+  var m = sample(UniformDrift({a:-25, b:25, r: 2}));
+  var b = sample(UniformDrift({a:-25, b:25, r: 2}));
+  var sigma = sample(UniformDrift({a:0, b:50, r:2}));
 
   var linearFunction = function(x){
      return m*x + b;
