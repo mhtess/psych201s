@@ -248,8 +248,6 @@ The previous example shows how sampling can model data as coming from a mixture 
 
 One straightforward way to allow for individual differences in the knowledge group is to extend the model hierarchically. One convenient (but not perfect) choice for this “individual differences” distribution is a Gaussian. It has the problem of allowing for success rates below zero and above one. An inelegant but practical and effective way to deal with this is simply to restrict the sampled success rates to the valid range.
 
-**Probably we should be doing something different than the LW Truncated gaussian**
-
 ```{r 6.2.1 ,fig.width=10, fig.height=4}
 
 exam.scores.individualDiff <- '
@@ -257,6 +255,12 @@ exam.scores.individualDiff <- '
 var n_correct = observed_data["n_correct"];
 var n_people = observed_data["n_people"];
 var n_questions = observed_data["n_questions"];
+
+var truncateTo01 = function(x){
+  return x > 0.999 ? 0.999 :
+         x < 0.001 ? 0.001 :
+         x 
+}
 
 var model = function() {
   
@@ -269,9 +273,7 @@ var model = function() {
     var group =  flip(0.5) ? "knowledge" : "guessing";
     
     var individualKnowledgeG = gaussian(knowledgeSuccessRate, sigma)
-    var individualKnowledge =  individualKnowledgeG > 0.999 ? 0.999 :
-                         individualKnowledgeG < 0.001 ? 0.001 :
-                         individualKnowledgeG 
+    var individualKnowledge =  truncateTo01(individualKnowledgeG)
 
     var successRate = group=="knowledge" ? individualKnowledge :
                         guessingSuccessRate
@@ -286,7 +288,8 @@ var model = function() {
 
   query.add("knowledgeRate", knowledgeSuccessRate)
   query.add("sigma", sigma)
-
+  query.add("predictiveRate", truncateTo01(gaussian(knowledgeSuccessRate, sigma)))
+ 
   return query
 }
 '
@@ -299,28 +302,13 @@ observed_data = list(
   n_people = length(k)
 )
 
-numSamples = 50000;
+numSamples = 20000;
 
 wp.samp <- webppl(program_code = exam.scores.individualDiff,
-       data = observed_data,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC", 
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE
-                          ),
-#        inference_opts = list(method="MCMC", 
-#                              kernel = 
-#                                list(HMC = 
-#                                       list(steps = 5,
-#                                            stepSize = 0.001)),
-#                           samples = numSamples, 
-#                           burn = numSamples/2,
-#                           verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
+       data = observed_data, data_var = "observed_data",
+       inference_opts = list(method="MCMC", samples = numSamples, 
+                             burn = numSamples/2, verbose = TRUE),
+      model_var = "model", packages = c("./utils"), output_format = "samples")
 
 wp.samp %>% 
   select(starts_with("knowledge")) %>%
@@ -332,7 +320,7 @@ wp.samp %>%
   facet_wrap(~parameter)
 
 wp.tidy <- wp.samp %>% 
-  select(-starts_with("knowledge"), -sigma)  %>%
+  select(-starts_with("knowledge"), -sigma, -predictiveRate)  %>%
   gather(participant, group) %>%
   mutate(group = as.factor(group)) %>%
   mutate(participant = factor(participant,
@@ -349,14 +337,17 @@ Compare the results of the hierarchical model with the original model that did n
 
 ### Exercise 6.2.2 
 
-Interpret the posterior distribution of the variable predphi. How does this distribution relate to the posterior distribution for mu?
+Interpret the posterior distribution of the variable predictiveRate. How does this distribution relate to the posterior distribution for knowledgeRate?
 
 ```{r 6.2.2,fig.width=10, fig.height=4}
-quartz('6.2.2 posterior of predphi')
-qplot(data=melt(df$predphi),x=value,geom='histogram',binwidth=0.008)+
-  theme_bw()+
-  xlab('posterior predictive phi')+
-  xlim(0,1)
+
+wp.samp %>% 
+  select(knowledgeRate, predictiveRate) %>%
+  gather(parameter, value) %>%
+  ggplot(., aes(x = value))+
+  geom_histogram()+
+  facet_wrap(~parameter)
+
 ```
 
 ### Exercise 6.2.3 
