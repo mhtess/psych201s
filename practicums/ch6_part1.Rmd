@@ -363,56 +363,104 @@ One way to make these inferences is to specify a model of how a person’s atten
 
 ```{r 6.3.1 ,fig.width=10, fig.height=8}
 twentyQuestionsModel <- '
-var data = [[1,1,1,1,0,0,1,1,0,1,0,0,1,0,0,1,0,1,0,0],
-            [0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,1,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0],
-            [1,0,1,1,0,1,1,1,0,1,0,0,1,0,0,0,0,1,0,0],
-            [1,1,0,1,0,0,0,1,0,1,0,1,1,0,0,1,0,1,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],   
-            [0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,0,1,0,1],
-            [1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0]];
-var n_people = data.length;
-var n_questions = data[0].length;
+var people = utils.uniq(utils.pluck(observed_data, "participant"));
+var questions = utils.uniq(utils.pluck(observed_data, "question"))
+var n_people = people.length;
+var n_questions = questions.length;
 
 var model = function() {
   var ps = repeat(n_people, function() {return beta(1,1)})
   var qs = repeat(n_questions, function() {return beta(1,1)})
 
-  foreach(_.range(0, n_questions), function(question_id) {
-    foreach(_.range(0, n_people), function(person_id) {
-      var p_i = ps[person_id]
-      var q_j = qs[question_id]
-      var successRate = p_i * q_j
-      observe({data: data[person_id][question_id] == 1, 
-               link: Bernoulli({p: successRate})})
+  foreach(questions, function(question_id) {
+    var questionData = subset(observed_data, "question", question_id);
+
+    foreach(people, function(person_id) {
+      var personQuestionData = subset(questionData, "participant", person_id);
+
+      var p_i = ps[person_id-1]
+      var q_j = qs[question_id-1]
+
+      var successRate = p_i * q_j;
+
+      observe({
+          data: utils.pluck(personQuestionData,"correctResponse"), 
+          link: Bernoulli({p: successRate})
+      })
+
       query.add("successRate" + person_id + "_" + question_id, successRate)
+
     })
+
   })
-  foreach(_.range(0, n_questions), function(i){query.add("question_" + i, qs[i])})
-  foreach(_.range(0, n_people), function(i){query.add("person_" + i, ps[i])})
+  foreach(_.range(0, n_questions), 
+            function(i){query.add("question_" + i, qs[i])})
+  foreach(_.range(0, n_people), 
+            function(i){query.add("person_" + i, ps[i])})
   return query
 }
 '
 
-numSamples = 1000
+# format data
+
+observed_data <- data.frame(
+fromJSON("
+          [
+          [1,1,1,1,0,0,1,1,0,1,0,0,1,0,0,1,0,1,0,0],
+          [0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          [0,0,1,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0],
+          [1,0,1,1,0,1,1,1,0,1,0,0,1,0,0,0,0,1,0,0],
+          [1,1,0,1,0,0,0,1,0,1,0,1,1,0,0,1,0,1,0,0],
+          [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],   
+          [0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,0,1,0,1],
+          [1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0]
+          ]
+         ")) %>% 
+  mutate(person = row.names(observed_data)) %>%
+  gather(question, response, -person) %>% 
+  mutate(question = gsub("X", "", question)) %>%
+  mutate(participant = to.n(person),
+         question = to.n(question),
+         response = response==1) %>%
+  select(-person) %>%
+  spread(question, response)
+
+
+print(observed_data)
+
+# make tidy data
+data_tidy <- observed_data %>%
+  gather(question, correctResponse, -participant)
+
+# look at data again
+head(data_tidy)
+
+numSamples = 500
 wp.samp <- webppl(program_code = twentyQuestionsModel,
-       inference_opts = list(method="MCMC",
-                             kernel =
-                               list(HMC =
-                                      list(steps = 5,
-                                           stepSize = 0.001)),
-                          samples = numSamples,
-                          burn = 50,
-                          verbose = TRUE),
+      inference_opts = list(method="MCMC", 
+                               kernel = list(HMC = 
+                                        list(steps = 5,
+                                             stepSize = 0.05)),
+                            samples = numSamples, 
+                            burn = numSamples/2,
+                            verbose = TRUE),
       model_var = "model",
+      data_var = "observed_data",
+      data = data_tidy,
       packages = c("./utils"),
       output_format = "samples"
       )
 
+
+```
+
+
+
+```{r}
 # Plot per-person params
-my_a<- wp.samp %>%
+wp.samp %>%
   select(starts_with("person")) %>%
   gather(parameter, value) %>%
   mutate(parameter = factor(parameter,
@@ -421,8 +469,10 @@ my_a<- wp.samp %>%
   geom_histogram(binwidth = 0.02)+
   facet_wrap(~parameter)
 
+
+
 # Plot per-question params
-my_b<-wp.samp %>%
+wp.samp %>%
   select(starts_with("question")) %>%
   gather(parameter, value) %>%
   mutate(parameter = factor(parameter,
