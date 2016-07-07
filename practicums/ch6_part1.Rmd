@@ -393,9 +393,9 @@ var model = function() {
     })
 
   })
-  foreach(_.range(0, n_questions), 
+  foreach(utils.range(0, n_questions), 
             function(i){query.add("question_" + i, qs[i])})
-  foreach(_.range(0, n_people), 
+  foreach(utils.range(0, n_people), 
             function(i){query.add("person_" + i, ps[i])})
   return query
 }
@@ -476,7 +476,8 @@ wp.samp %>%
   select(starts_with("question")) %>%
   gather(parameter, value) %>%
   mutate(parameter = factor(parameter,
-                            levels = c(paste("question",0:19, sep = "_"), "knowledgeRate"))) %>%
+                            levels = c(paste("question",0:19, sep = "_"),
+                                       "knowledgeRate"))) %>%
   ggplot(., aes(x= value)) + 
   geom_histogram(binwidth = 0.02)+
   facet_wrap(~parameter) +
@@ -503,6 +504,49 @@ k <- c(1,1,1,1,0,0,1,1,0,1,0,0,NA,0,0,1,0,1,0,0,
 
 k <- matrix(k, nrow=10, byrow=T)
 
+observed_data <- data.frame(k) %>% 
+  mutate(person = row.names(observed_data)) %>%
+  gather(question, response, -person) %>% 
+  mutate(question = gsub("X", "", question)) %>%
+  mutate(participant = to.n(person),
+         question = to.n(question),
+         response = response==1) %>%
+  select(-person) %>%
+  spread(question, response)
+
+data_tidy <- observed_data %>%
+  gather(question, correctResponse, -participant)
+
+# remove missing data from data frame
+data_tidy <- data_tidy[complete.cases(data_tidy),]
+
+# look at data again
+head(data_tidy)
+
+numSamples = 500
+wp.samp <- webppl(program_code = twentyQuestionsModel,
+      inference_opts = list(method="MCMC", 
+                               kernel = list(HMC = 
+                                        list(steps = 5,
+                                             stepSize = 0.05)),
+                            samples = numSamples, 
+                            burn = numSamples/2,
+                            verbose = TRUE),
+      model_var = "model",
+      data_var = "observed_data",
+      data = data_tidy,
+      packages = c("./utils"),
+      output_format = "samples"
+      )
+
+# Note first number is Person #, second is Question #
+wp.samp %>%
+  select(starts_with("successRate")) %>% 
+  gather(key, val) %>% 
+  filter(key %in% c("successRate1_13", "successRate8_5", "successRate10_18")) %>%
+  ggplot(., aes(x = val))+
+  geom_histogram()+
+  facet_wrap(~key)
 ```
 
 ### 6.3.3 Rasch model
