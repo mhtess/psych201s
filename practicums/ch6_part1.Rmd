@@ -401,7 +401,7 @@ wp.samp <- webppl(program_code = twentyQuestionsModel,
        inference_opts = list(method="MCMC",
                              kernel =
                                list(HMC =
-                                      list(steps = 50,
+                                      list(steps = 5,
                                            stepSize = 0.001)),
                           samples = numSamples,
                           burn = 50,
