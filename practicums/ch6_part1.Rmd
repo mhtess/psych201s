@@ -190,8 +190,8 @@ var n_questions = observed_data["n_questions"];
 
 var model = function() {
   
-  var knowledgeSuccessRate = uniform(0.5, 1)
-  var guessingSuccessRate = uniform(0,1)//0.5  
+  var knowledgeSuccessRate = uniform(0, 1)
+  var guessingSuccessRate = 0.5  
 
   foreach(_.range(0, n_people), function(id){
 
