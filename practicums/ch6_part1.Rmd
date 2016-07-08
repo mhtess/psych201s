@@ -5,6 +5,55 @@ date: "October 21, 2014"
 output: html_document
 ---
 
+# Setup
+
+```{r}
+library(rwebppl)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(jsonlite)
+
+setwd("~/Repos/psych201s/practicums")
+
+to.n <- function(n){return(as.numeric(as.character(n)))}
+
+runModelMCMC <- function(model, data_to_webppl, 
+                         numSamples = 50000) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data", 
+       inference_opts = list(method="MCMC", 
+                            samples = numSamples, 
+                            burn = numSamples/2,
+                            verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+    )
+}
+
+runModelHMC <- function(model, data_to_webppl, 
+                         numSamples = 50000, stepSize = 0.05) {
+  wp <- webppl(
+    program_code = model,
+    data = data_to_webppl,
+    data_var = "observed_data",
+    inference_opts = list(method="MCMC", 
+                             kernel = list(HMC = 
+                                      list(steps = 10,
+                                           stepSize = stepSize)),
+                          samples = numSamples, 
+                          burn = numSamples/2,
+                          verbose = TRUE),
+    model_var = "model",
+    output_format = "samples",
+    packages = c("./utils")
+  )
+}
+```
+
 # Chapter 6: Latent Mixture Models
 
 Suppose a group of 15 people sit an exam made up of 40 true-or-false questions, and they get 21, 17, 21, 18, 22, 31, 31, 34, 34, 35, 35, 36, 39, 36, and 35 right. These scores suggest that the first 5 people were just guessing, but the last 10 had some level of knowledge.
@@ -16,13 +65,6 @@ This type of model is known as a latent-mixture model, because the data are assu
 Recall that in WebPPL, `uniform(0.5,1)` is the same as `sample(Uniform({a:0.5, b:1}))`. Also, `flip(0.5)` is shorthand for `bernoulli(0.5)`.
 
 ```{r 6.1.1,fig.width=10, fig.height=4}
-library(rwebppl)
-library(ggplot2)
-library(tidyr)
-library(dplyr)
-
-#setwd("~/Repos/psych201s/practicums")
-
 exam.scores <- '
 // unpack data
 var n_correct = observed_data["n_correct"];
@@ -37,15 +79,16 @@ var model = function() {
   foreach(_.range(0, n_people), function(id){
 
     var group =  flip(0.5) ? "knowledge" : "guessing";
-    var successRate = group=="knowledge" ? 
-                        knowledgeSuccessRate : 
-                        guessingSuccessRate
+    var successRate = (group=="knowledge" ? 
+                       knowledgeSuccessRate : 
+                       guessingSuccessRate);
 
-    observe({data: n_correct[id], 
-              link: Binomial({n:n_questions, p:successRate})})
+    observe({
+      data: n_correct[id], 
+      link: Binomial({n:n_questions, p:successRate})
+    })
     
     query.add("p" + id, group)
-
   })
 
   query.add("knowledgeRate", knowledgeSuccessRate)
@@ -64,17 +107,7 @@ observed_data = list(
 
 numSamples = 50000;
 
-wp.samp <- webppl(program_code = exam.scores,
-       data = observed_data,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC", 
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
+wp.samp <- runModelMCMC(exam.scores, observed_data, numSamples)
 
 # As always, first look at what your output looks like:
 
@@ -85,17 +118,14 @@ ggplot(wp.samp, aes(x= knowledgeRate)) +
   geom_histogram(binwidth = 0.01)+
   xlim(0.5,1)
 
-# tidy the data for looking at the "group" variable
-wp.tidy <- wp.samp %>% 
-  select(-knowledgeRate) %>%
-  gather(participant, group) %>%
-  mutate(participant = factor(participant,
-                              levels = paste("p",0:length(k)-1, sep = "")))
-
 # plot posterior on group variable for each participant
-ggplot(wp.tidy, aes(x = group))+
-  geom_bar() + 
-  facet_wrap(~participant)
+wp.samp %>% 
+  gather(participant, group, -knowledgeRate) %>%
+  mutate(participant = factor(participant,
+                              levels = paste("p",0:length(k)-1, sep = ""))) %>%
+  ggplot(aes(x = group))+
+    geom_bar() + 
+    facet_wrap(~participant)
 ```
 
 ### Ex 6.1.1
@@ -108,13 +138,17 @@ Who belongs to what group, and how confident are you?
 ### Ex 6.1.3 
 
 Include an extra person in the exam, with a score of 28 out of 40. What does their posterior for group tell you? 
+
 ...
 
 Now add four extra people, all with the score 28 out of 40. Explain the change these extra people make to the inference.
+
 ...
 
 ```{r 6.1.3a,fig.width=10, fig.height=4, echo=FALSE}
-k <- c(21,17,21,18,22,31,31,34,34,35,35,36,39,36,35,28)
+# ADD NEW SCORES HERE
+k <- c(21,17,21,18,22,31,31,34,34,35,35,36,39,36,35,
+       ... )
 
 observed_data = list(
   n_correct = k,
@@ -122,33 +156,22 @@ observed_data = list(
   n_people = length(k)
 )
 
-wp.samp <- webppl(program_code = exam.scores,
-       data = observed_data,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC", 
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
-
+wp.samp <- runModelMCMC(exam.scores, observed_data, numSamples)
 
 # plot the inferred "knowledge rate"
 ggplot(wp.samp, aes(x= knowledgeRate)) + 
   geom_histogram(binwidth = 0.01)+
   xlim(0.5,1)
 
-wp.tidy <- wp.samp %>% 
+# plot group membership posteriors
+wp.samp %>% 
   select(-knowledgeRate) %>%
   gather(participant, group) %>%
   mutate(participant = factor(participant,
-                              levels = paste("p",0:length(k)-1, sep = "")))
-
-ggplot(wp.tidy, aes(x = group))+
-  geom_bar() + 
-  facet_wrap(~participant)
+                              levels = paste("p",0:length(k)-1, sep = ""))) %>%
+  ggplot(aes(x = group, fill = group))+
+    geom_bar() + 
+    facet_wrap(~participant)
 ```
 
 
@@ -191,7 +214,7 @@ var model = function() {
 }
 '
 
-k <- c(21,17,21,18,22,31,31,34,34,35,35,36,39,36,35, 28, 28, 28, 28)
+k <- c(21,17,21,18,22,31,31,34,34,35,35,36,39,36,35)
 
 observed_data = list(
   n_correct = k,
@@ -201,22 +224,11 @@ observed_data = list(
 
 numSamples = 50000;
 
-wp.samp <- webppl(program_code = exam.scores2,
-       data = observed_data,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC", 
-                          samples = numSamples, 
-                          burn = numSamples/2,
-                          verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
-
+wp.samp <- runModelMCMC(exam.scores2, observed_data, numSamples)
 
 wp.samp %>% select(knowledgeRate, guessingRate) %>%
   gather(parameter, value) %>%
-  ggplot(., aes(x= value)) + 
+  ggplot(aes(x= value)) + 
   geom_histogram()+
   facet_wrap(~parameter)
 
@@ -256,10 +268,10 @@ var n_correct = observed_data["n_correct"];
 var n_people = observed_data["n_people"];
 var n_questions = observed_data["n_questions"];
 
-var truncateTo01 = function(x){
-  return x > 0.999 ? 0.999 :
-         x < 0.001 ? 0.001 :
-         x 
+var truncatedGaussian = function(mu, sigma){
+  var s = gaussian(mu, sigma);
+  factor(s < 0 || s > 1 ? -Infinity : 0);
+  return s;
 }
 
 var model = function() {
@@ -272,11 +284,11 @@ var model = function() {
 
     var group =  flip(0.5) ? "knowledge" : "guessing";
     
-    var individualKnowledgeG = gaussian(knowledgeSuccessRate, sigma)
-    var individualKnowledge =  truncateTo01(individualKnowledgeG)
+    var individualKnowledge = truncatedGaussian(knowledgeSuccessRate, sigma)
 
-    var successRate = group=="knowledge" ? individualKnowledge :
-                        guessingSuccessRate
+    var successRate = (group=="knowledge" ? 
+                        individualKnowledge :
+                        guessingSuccessRate)
 
     observe({data: n_correct[id], 
               link: Binomial({n:n_questions, p:successRate})})
@@ -288,7 +300,7 @@ var model = function() {
 
   query.add("knowledgeRate", knowledgeSuccessRate)
   query.add("sigma", sigma)
-  query.add("predictiveRate", truncateTo01(gaussian(knowledgeSuccessRate, sigma)))
+  query.add("predictiveRate", truncatedGaussian(knowledgeSuccessRate, sigma))
  
   return query
 }
@@ -302,33 +314,31 @@ observed_data = list(
   n_people = length(k)
 )
 
-numSamples = 20000;
+numSamples = 100000;
 
-wp.samp <- webppl(program_code = exam.scores.individualDiff,
-       data = observed_data, data_var = "observed_data",
-       inference_opts = list(method="MCMC", samples = numSamples, 
-                             burn = numSamples/2, verbose = TRUE),
-      model_var = "model", packages = c("./utils"), output_format = "samples")
+wp.samp <- runModelMCMC(exam.scores.individualDiff,observed_data, numSamples)
 
+# Plot individual knowledge rates
 wp.samp %>% 
   select(starts_with("knowledge")) %>%
   gather(parameter, value) %>%
   mutate(parameter = factor(parameter,
-                            levels = c(paste("knowledge",0:14, sep = "_"), "knowledgeRate"))) %>%
+                            levels = c(paste("knowledge",0:14, sep = "_"),
+                                       "knowledgeRate"))) %>%
   ggplot(., aes(x= value)) + 
   geom_histogram()+
   facet_wrap(~parameter)
 
-wp.tidy <- wp.samp %>% 
+# Plot membership beliefs
+wp.samp %>% 
   select(-starts_with("knowledge"), -sigma, -predictiveRate)  %>%
   gather(participant, group) %>%
   mutate(group = as.factor(group)) %>%
   mutate(participant = factor(participant,
-                              levels = paste("p",0:14, sep = "")))
-
-ggplot(wp.tidy, aes(x = group))+
-  geom_bar() + 
-  facet_wrap(~participant)
+                              levels = paste("p",0:14, sep = ""))) %>%
+  ggplot(aes(x = group))+
+    geom_bar() + 
+    facet_wrap(~participant)
 ```
 
 ### Exercise 6.2.1 
@@ -418,7 +428,7 @@ fromJSON("
           [1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0]
           ]
          ")) %>% 
-  mutate(person = row.names(observed_data)) %>%
+  mutate(person = row_number()) %>%
   gather(question, response, -person) %>% 
   mutate(question = gsub("X", "", question)) %>%
   mutate(participant = to.n(person),
@@ -437,21 +447,8 @@ data_tidy <- observed_data %>%
 # look at data again
 head(data_tidy)
 
-numSamples = 500
-wp.samp <- webppl(program_code = twentyQuestionsModel,
-      inference_opts = list(method="MCMC", 
-                               kernel = list(HMC = 
-                                        list(steps = 5,
-                                             stepSize = 0.05)),
-                            samples = numSamples, 
-                            burn = numSamples/2,
-                            verbose = TRUE),
-      model_var = "model",
-      data_var = "observed_data",
-      data = data_tidy,
-      packages = c("./utils"),
-      output_format = "samples"
-      )
+numSamples = 2000
+wp.samp <- runModelHMC(twentyQuestionsModel, data_tidy, numSamples)
 
 
 ```
@@ -489,6 +486,9 @@ wp.samp %>%
 Draw some conclusions about how well the various people listened, and about the difficulties of the various questions. Do the marginal posterior distributions you are basing your inference on seem intuitively reasonable?
 
 ### Ex 6.3.2 Missing data
+
+Now suppose that three of the answers were not recorded, for what- ever reason. Our new data set, with missing data, now takes the form shown in Table 6.2. Bayesian inference will automatically make predictions about these missing values (i.e., “fill in the blanks”) by using the same probabilistic model that generated the observed data. Missing data are entered NA (“not available”). Including the variable k as one to monitor when sampling will then provide posterior values for the missing values. That is, it provides information about the relative likelihood of the missing values being each of the possible alter- natives, using the statistical model and the available data. Look through the R code to see how all of this is implemented in the second data set. Run the code, and interpret the posterior distributions for the three missing values. Are they reasonable inferences?
+
 ```{r 6.3.2 ,fig.width=10, fig.height=8}
 
 k <- c(1,1,1,1,0,0,1,1,0,1,0,0,NA,0,0,1,0,1,0,0,
@@ -523,21 +523,8 @@ data_tidy <- data_tidy[complete.cases(data_tidy),]
 # look at data again
 head(data_tidy)
 
-numSamples = 500
-wp.samp <- webppl(program_code = twentyQuestionsModel,
-      inference_opts = list(method="MCMC", 
-                               kernel = list(HMC = 
-                                        list(steps = 5,
-                                             stepSize = 0.05)),
-                            samples = numSamples, 
-                            burn = numSamples/2,
-                            verbose = TRUE),
-      model_var = "model",
-      data_var = "observed_data",
-      data = data_tidy,
-      packages = c("./utils"),
-      output_format = "samples"
-      )
+numSamples = 2000
+wp.samp <-runModelHMC(twentyQuestionsModel, data_tidy, numSamples)
 
 # Note first number is Person #, second is Question #
 wp.samp %>%
@@ -551,8 +538,23 @@ wp.samp %>%
 
 ### 6.3.3 Rasch model
 
-```{r 6.3.3 ,fig.width=10, fig.height=8}
+The definition of the accuracy for a person on a question in terms of the product theta ij = pi*qj is very simple to understand, but other models of the interaction between person ability and question difficulty are used in psychometric models. For example, the Rasch model (e.g., Andrich, 1988) uses theta ij = exp(pi - qj)/(1 + exp(pi − qj)). Change the graphical model to implement the Rasch model.
 
+Copy over the code from above, find where we compute theta, and plug in this new accuracy function.
+
+```{r 6.3.3 ,fig.width=10, fig.height=8}
+raschModel <- '
+var oldAccuracyFunction = function(p_i, q_j) {
+  return p_i * q_j;
+};
+
+var newAccuracyFunction = function(p_i, q_j) {
+  return Math.exp(pi - qj)/(1 + Math.exp(pi - qj));
+}
+
+...
+
+'
 ```
 
 
@@ -566,16 +568,10 @@ A good way to make these inferences formally is to assume there are two types of
 
 ```{r 6.4.1,fig.width=10, fig.height=8}
 twoCountryModel <- '
-var data = [[1,0,0,1,1,0,0,1],
-            [1,0,0,1,1,0,0,1],
-            [0,1,1,0,0,1,0,0],
-            [0,1,1,0,0,1,1,0],
-            [1,0,0,1,1,0,0,1],
-            [0,0,0,1,1,0,0,1],
-            [0,1,0,0,0,1,1,0],
-            [0,1,1,1,0,1,1,0]]
-var n_people = data.length;
-var n_questions = data[0].length;
+var people = utils.uniq(utils.pluck(observed_data, "participant"));
+var questions = utils.uniq(utils.pluck(observed_data, "question"))
+var n_people = people.length;
+var n_questions = questions.length;
 
 var model = function() {
   var alpha = uniform(0,1)
@@ -583,16 +579,21 @@ var model = function() {
   var personAssignments = repeat(n_people, flip)
   var questionAssignments = repeat(n_questions, flip)
 
-  foreach(_.range(0, n_questions), function(question_id) {
-    foreach(_.range(0, n_people), function(person_id) {
-      var pAssignment = personAssignments[person_id]
-      var qAssignment = questionAssignments[question_id]
+  foreach(questions, function(question_id) {
+    var questionData = subset(observed_data, "question", question_id)
+
+    foreach(people, function(person_id) {
+      var personQuestionData = subset(questionData, "participant", person_id)
+
+      var pAssignment = personAssignments[person_id - 1]
+      var qAssignment = questionAssignments[question_id - 1]
+
       var successRate = (pAssignment == qAssignment ? alpha : beta)
-      if(!Bernoulli({p:successRate}).score(data[person_id][question_id] == 1)) {
-        console.log(alpha + ", " + beta)
-      }
-      observe({data: data[person_id][question_id] == 1, 
-               link: Bernoulli({p: successRate})})
+
+      observe({
+        data: utils.pluck(personQuestionData, "correctResponse")[0],
+        link: Bernoulli({p: successRate})
+      })
       query.add("successRate" + person_id + "_" + question_id, successRate)
     })
   })
@@ -601,30 +602,59 @@ var model = function() {
   query.add("beta", beta)
 
   // Add to query table
-  foreach(_.range(0, n_questions), function(i){
+  foreach(utils.range(0, n_questions), function(i){
     query.add("question_" + i, questionAssignments[i])
   })
-  foreach(_.range(0, n_people), function(i){
+  foreach(utils.range(0, n_people), function(i){
     query.add("person_" + i, personAssignments[i])
   })
   return query
 }
 '
 
-numSamples = 5000
+observed_data <- data.frame(
+  fromJSON("[[1,0,0,1,1,0,0,1],
+             [1,0,0,1,1,0,0,1],
+             [0,1,1,0,0,1,0,0],
+             [0,1,1,0,0,1,1,0],
+             [1,0,0,1,1,0,0,1],
+             [0,0,0,1,1,0,0,1],
+             [0,1,0,0,0,1,1,0],
+             [0,1,1,1,0,1,1,0]]")) %>%
+  mutate(person = row_number()) %>%
+  gather(question, response, -person) %>% 
+  mutate(question = gsub("X", "", question)) %>%
+  mutate(participant = to.n(person),
+         question = to.n(question),
+         response = response==1) %>%
+  select(-person) %>%
+  spread(question, response)
+
+# make tidy data
+data_tidy <- observed_data %>%
+  gather(question, correctResponse, -participant)
+
+print(data_tidy)
+numSamples = 1000
+#wp.samp <- runModelMCMC(twoCountryModel, data_tidy, numSamples)
 wp.samp <- webppl(program_code = twoCountryModel,
+        data_var = "observed_data",
+        data = data_tidy,
        inference_opts = list(method="MCMC",
                              kernel =
                                list(HMC =
                                       list(steps = 25,
                                            stepSize = 0.001)),
                           samples = numSamples,
-                          burn = 50,
+                          burn = numSamples/2,
                           verbose = TRUE),
       model_var = "model",
       packages = c("./utils"),
       output_format = "samples"
       )
+```
+
+```{r}
 
 # Plot alpha/beta
 wp.samp %>% 
@@ -665,7 +695,7 @@ Interpret the posterior distributions for x[i], z[j], alpha, and beta. Do the fo
 
 ### Exercise 6.4.2 
 
-The priors on the probabilities of answering correctly capture knowledge about what it means to match and mismatch, by imposing an order constraint α ≥ β. Change the code so that this information is not included, by using priors alpha∼dbeta(1,1) and beta∼dbeta(1,1). Run a few chains against the same data, until you get an inappropriate, and perhaps counter-intuitive, result. The problem that is being encountered is known as model indeterminacy or label-switching. Describe the problem, and discuss why it comes about.
+The priors on the probabilities of answering correctly capture knowledge about what it means to match and mismatch, by imposing an order constraint alpha >= beta. Change the code so that this information is not included, by using priors alpha∼beta(1,1) and beta∼beta(1,1). Run a few chains against the same data, until you get an inappropriate, and perhaps counter-intuitive, result. The problem that is being encountered is known as model indeterminacy or label-switching. Describe the problem, and discuss why it comes about.
 
 ```{r 6.4.2,fig.width=10, fig.height=8}
 
@@ -678,7 +708,55 @@ The problem is that the alpha (the probability of answering correctly for a ques
 Now suppose that three extra people enter the room late, and begin to take the quiz. One of them (Late Person 1) has answered the first four questions, the next (Late Person 2) has only answered the first question, and the final new person (Late Person 3) is still sharpening their pencil, and has not started the quiz. This situation can be represented as an updated data set, now with missing data. Interpret the inferences the model makes about the nationality of the late people, and whether or not they will get the unfinished questions correct.
 
 ```{r 6.4.3,fig.width=10, fig.height=16}
+k <- c(1,0,0,1,1,0,0,1,
+       1,0,0,1,1,0,0,1,
+       0,1,1,0,0,1,0,0,
+       0,1,1,0,0,1,1,0,
+       1,0,0,1,1,0,0,1,
+       0,0,0,1,1,0,0,1,
+       0,1,0,0,0,1,1,0,
+       0,1,1,1,0,1,1,0,
+       1,0,0,1,NA,NA,NA,NA,
+       0,NA,NA,NA,NA,NA,NA,NA,
+       NA,NA,NA,NA,NA,NA,NA,NA);
 
+k <- matrix(k, nrow=11, byrow=T)
+
+observed_data <- data.frame(k) %>%
+  mutate(person = row_number()) %>%
+  gather(question, response, -person) %>% 
+  mutate(question = gsub("X", "", question)) %>%
+  mutate(participant = to.n(person),
+         question = to.n(question),
+         response = response==1) %>%
+  select(-person) %>%
+  spread(question, response)
+
+# make tidy data
+data_tidy <- observed_data %>%
+  gather(question, correctResponse, -participant)
+
+data_tidy <- data_tidy[complete.cases(data_tidy),]
+
+numSamples = 1000
+#wp.samp <- runModelMCMC(twoCountryModel, data_tidy, numSamples)
+wp.samp <- webppl(program_code = twoCountryModel,
+        data_var = "observed_data",
+        data = data_tidy,
+       inference_opts = list(method="MCMC",
+                             kernel =
+                               list(HMC =
+                                      list(steps = 25,
+                                           stepSize = 0.001)),
+                          samples = numSamples,
+                          burn = numSamples/2,
+                          verbose = TRUE),
+      model_var = "model",
+      packages = c("./utils"),
+      output_format = "samples"
+      )
+
+# WRITE YOUR OWN ANALYSIS CODE HERE; see 6.3.2 for hints
 ```
 
 
@@ -688,7 +766,41 @@ Now suppose that three extra people enter the room late, and begin to take the q
 Finally, suppose that you are now given the correctness scores for a set of 10 new people, whose data were not previously available, but who form part of the same group of people we are studying. Interpret the inferences the model makes about the nationality of the new people. Revisit the inferences about the late people, and whether or not they will get the unfinished questions correct. Does the inference drawn by the model for the third late person match your intuition? There is a problem here. How could it be fixed?
 
 ```{r 6.4.4,fig.width=10, fig.height=16}
+# Note: the way we extract n_participants in our webppl model 
+# just counts unique numbers in the participant column, 
+# and will miss the fully missing row. This should be fixed either by 
+# passing in num_participants explicitly, or using another data representation 
 
+k <- c(rep(c(1,0,0,1,1,0,0,1), 10),
+       1,0,0,1,1,0,0,1,
+       1,0,0,1,1,0,0,1,
+       0,1,1,0,0,1,0,0,
+       0,1,1,0,0,1,1,0,
+       1,0,0,1,1,0,0,1,
+       0,0,0,1,1,0,0,1,
+       0,1,0,0,0,1,1,0,
+       0,1,1,1,0,1,1,0,
+       1,0,0,1,NA,NA,NA,NA,
+       0,NA,NA,NA,NA,NA,NA,NA,
+       NA,NA,NA,NA,NA,NA,NA,NA);
+
+k <- matrix(k, nrow=21, byrow=T)
+
+observed_data <- data.frame(k) %>%
+  mutate(person = row_number()) %>%
+  gather(question, response, -person) %>% 
+  mutate(question = gsub("X", "", question)) %>%
+  mutate(participant = to.n(person),
+         question = to.n(question),
+         response = response==1) %>%
+  select(-person) %>%
+  spread(question, response)
+
+# make tidy data
+data_tidy <- observed_data %>%
+  gather(question, correctResponse, -participant)
+
+data_tidy <- data_tidy[complete.cases(data_tidy),]
 ```
 
 
