@@ -589,9 +589,8 @@ var model = function() {
       var qAssignment = questionAssignments[question_id - 1]
 
       var successRate = (pAssignment == qAssignment ? alpha : beta)
-
       observe({
-        data: utils.pluck(personQuestionData, "correctResponse")[0],
+        data: utils.pluck(personQuestionData, "correctResponse"),
         link: Bernoulli({p: successRate})
       })
       query.add("successRate" + person_id + "_" + question_id, successRate)
