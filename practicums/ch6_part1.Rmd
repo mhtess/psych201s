@@ -708,6 +708,11 @@ The problem is that the alpha (the probability of answering correctly for a ques
 Now suppose that three extra people enter the room late, and begin to take the quiz. One of them (Late Person 1) has answered the first four questions, the next (Late Person 2) has only answered the first question, and the final new person (Late Person 3) is still sharpening their pencil, and has not started the quiz. This situation can be represented as an updated data set, now with missing data. Interpret the inferences the model makes about the nationality of the late people, and whether or not they will get the unfinished questions correct.
 
 ```{r 6.4.3,fig.width=10, fig.height=16}
+# Note: the way we extract n_participants in our webppl model 
+# just counts unique numbers in the participant column, 
+# and will miss the fully missing row. This should be fixed either by 
+# passing in num_participants explicitly, or using another data representation 
+
 k <- c(1,0,0,1,1,0,0,1,
        1,0,0,1,1,0,0,1,
        0,1,1,0,0,1,0,0,
