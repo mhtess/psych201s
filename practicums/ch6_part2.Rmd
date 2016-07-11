@@ -4,6 +4,17 @@ author: "mht"
 date: "October 21, 2014"
 output: html_document
 ---
+# Setup 
+
+```{r}
+library(rwebppl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+getwd()
+setwd("~/Repos/psych201s/practicums/")
+```
 
 # 6.5 Assessment of malingering
 
@@ -93,7 +104,7 @@ As before, it may seem restrictive to assume that all members of a group have th
 
 One of several alternatives is to assume that instead of being Gaussian, the group-level distribution is Beta(alpha,beta).
 
-It is useful to transform the α and β parameters from the beta distribution to a group mean μ = α/(α+β) and a measure λ = α+β that can be conceived of as a precision, in the sense that as it increases the variability of the distribution decreases. It is then straightforward to assign uniform priors to both μb, the group- level mean for the bona fide participants, and μm, the group-level mean for the malingerers. This assignment does not, however, reflect our knowledge that μb > μm. To capture this knowledge, we could define dunif(0,mubon), as done in the previous model.
+It is useful to transform the alpha and beta parameters from the beta distribution to a group mean mu = alpha/(alpha+beta) and a measure lambda = alpha+beta that can be conceived of as a precision, in the sense that as it increases the variability of the distribution decreases. It is then straightforward to assign uniform priors to both mu b, the group- level mean for the bona fide participants, and mu m, the group-level mean for the malingerers. This assignment does not, however, reflect our knowledge that mu b > mu m. To capture this knowledge, we could define dunif(0,mubon), as done in the previous model.
 
 However, for this model we apply a different approach. We first define μm as the additive combination of μb and a difference parameter, so that logit(μm) = logit(μb) − μd. Note that this is an additive combination on the logit scale, as is customary in beta-binomial models. The logit transformation is defined as logit(θ) ≡ ln(θ/(1 − θ)) and it transforms values on the rate scale, ranging from 0 to 1, to values on the logit scale, ranging from −∞ to ∞.
 
@@ -111,16 +122,15 @@ var positiveGaussian = function(mu, sigma) {
   return gaussianSample
 }
 
-var shape_alpha = function(mean, concentration) { 
-  return mean*concentration
+// In this problem, we use a reparameterization of the beta distribution
+// defined in terms of its mean and concentration. This is a helper function
+// that lets us easily sample from that reparameterized distribution
+var beta_mu_lambda = function(mean, concentration) {
+  return beta(mean*concentration, (1-mean)*concentration);
 }
 
-var shape_beta = function(mean, concentration) { 
-  return (1-mean)*concentration
-}
-
-// logit(mu_mal) = logit(mu_b) - mu_d
-// -> mu_mal = 1/(1 + e^{-logit(mu_b) + mu_d})
+// Subtracts mu_d from mu_b in logit space, and transforms back to [0,1] 
+// logit(mu_mal) = logit(mu_b) - mu_d ==> mu_mal = 1/(1 + e^{-logit(mu_b) + mu_d})
 var calcMuMal = function(mu_b, mu_d) {
   var ratio = (1 - mu_b) / mu_b
   return 1 / (1 + ratio * Math.exp(mu_d));
@@ -130,27 +140,25 @@ var model = function() {
   // Assign groups with baserate phi
   var phi = beta(5,5) 
   var sampleGroup = function() { return flip(phi) ? "bonafide" : "malingerer" }
-
   var personAssignments = repeat(n_people, sampleGroup)
   
-  // Sample group parameters
-  var muDiff = positiveGaussian(0, 0.5)
+  // Sample a mean and concentration for the bonefides 
   var muBon = beta(1,1)
-  var muMal = calcMuMal(muBon, muDiff)
   var lambdaBon = uniform(40, 800)
+  
+  // Sample a distance away from muBon
+  var muDiff = positiveGaussian(0, 0.5)
+  
+  // Sample a mean and concentration for the malingerers 
+  // (we get mu by subtracting distance in logit space and transforming back to [0,1])
+  var muMal = calcMuMal(muBon, muDiff)
   var lambdaMal = uniform(4, 100)
   
-  // make these as muBon and muMal ... (then just sample from betas for indiv.diff.)
-  var bonaFideRate = uniform(0.5,1)
-  var malingererRate = uniform(0,bonaFideRate)
-
-  
-
   foreach(utils.range(0, n_people), function(person_id) {
     var pAssignment = personAssignments[person_id]
     var successRate = (pAssignment == "bonafide")  ? 
-                       beta(muBon * lambdaBon, (1 - muBon) * lambdaBon) :
-                       beta(muMal * lambdaMal, (1 - muMal) * lambdaMal )
+                       beta_mu_lambda(muBon, lambdaBon) :
+                       beta_mu_lambda(muMal, lambdaMal);
     observe({data: data[person_id], 
              link: Binomial({p: successRate, n: n_questions})})
     query.add("successRate" + person_id, successRate)
@@ -167,16 +175,19 @@ var model = function() {
 }
 '
 
-numSamples = 500
+
+numSamples = 2000
 wp.samp <- webppl(program_code = indDiffMalingeringModel,
        inference_opts = list(method="MCMC",
                              kernel =
                                list(HMC =
-                                      list(steps = 5,
-                                           stepSize = 0.001)),
+                                      list(steps = 23,
+                                           stepSize = 0.00075)),
                           samples = numSamples,
                           burn = numSamples/2,
                           verbose = TRUE),
+     chains = 2,
+     cores = 2,
       model_var = "model",
       packages = c("./utils"),
       output_format = "samples"
@@ -233,8 +244,6 @@ We might also suspect that the mean for the malingerer group **won't** change as
 
 ```
 
-This doesn't have a huge effect.
-
 ### Exercise 6.6.3 
 
 Assume you know for certain that participants 1, 2, and 3 are bona
@@ -244,6 +253,19 @@ fide. Change the code to reflect this knowledge.
 
 ```
 
+### Exercise 6.6.5
+
+Suppose you add a new participant. What number of questions
+answered correctly by this participant would lead to the greatest uncertainty
+about their group membership?
+
+### Exercise 6.6.6
+
+Try to solve the label-switching problem by using the dunif(0,mubon) approach instead of the logit transform.
+
+### Exercise 6.6.7
+
+Why are the priors for lambda bon and lambda mal different?
 
 # 6.7 Alzheimer's recall test cheating
 
@@ -265,6 +287,13 @@ var positiveGaussian = function(mu, sigma) {
   return gaussianSample
 }
 
+// In this problem, we use a reparameterization of the beta distribution
+// defined in terms of its mean and concentration. This is a helper function
+// that lets us easily sample from that reparameterized distribution
+var beta_mu_lambda = function(mean, concentration) {
+  return beta(mean*concentration, (1-mean)*concentration);
+}
+
 // logit(mu_mal) = logit(mu_b) - mu_d
 // -> mu_mal = 1/(1 + e^{-logit(mu_b) - mu_d})
 var calcMuMal = function(mu_b, mu_d) {
@@ -275,6 +304,7 @@ var calcMuMal = function(mu_b, mu_d) {
 var model = function() {
   // Assign groups with baserate phi
   var phi = beta(5,5) 
+  var sampleGroup = function() { return flip(phi) ? "bonafide" : "cheater" }
   var personAssignments = repeat(n_people, function() {return flip(phi)})
   
   // Sample group parameters
@@ -283,11 +313,11 @@ var model = function() {
   var muCheat = calcMuMal(muBon, muDiff)
   var lambdaBon = uniform(5, 50)
   var lambdaCheat = uniform(5, 50)
-  foreach(_.range(0, n_people), function(person_id) {
+  foreach(utils.range(0, n_people), function(person_id) {
     var pAssignment = personAssignments[person_id]
-    var successRate = (pAssignment ? 
-                       beta(muBon * lambdaBon, (1 - muBon) * lambdaBon) :
-                       beta(muCheat * lambdaCheat, (1 - muCheat) * lambdaCheat ))
+    var successRate = (pAssignment == "bonafide")  ? 
+                       beta_mu_lambda(muBon, lambdaBon) :
+                       beta_mu_lambda(muCheat, lambdaCheat);
     observe({data: data[person_id], 
              link: Binomial({p: successRate, n: n_questions})})
     query.add("successRate" + person_id, successRate)
@@ -297,19 +327,20 @@ var model = function() {
   query.add("phi", phi)
   query.add("muCheat", muCheat)
   query.add("muBon", muBon)
-  foreach(_.range(0, n_people), function(i){
+  foreach(utils.range(0, n_people), function(i){
     query.add("person_" + i, personAssignments[i])
   })
   return query
 }
 '
 
-cheatCounts  <- rowSums(read.table("ParameterEstimation/webppl/cheat.txt",
-                                   header=F,sep=","))
+dataLoc = 'https://raw.githubusercontent.com/mhtess/psych201s/master/data/cheat.txt'
+
+cheatCounts  <- rowSums(read.table(dataLoc, header=F,sep=","))
 
 numSamples = 1000
 wp.samp <- webppl(program_code = alzheimersTestModel,
-       data = rowSums(cheat.dat),
+       data = cheatCounts,
        data_var = "observed_data",
        inference_opts = list(method="MCMC",
                              kernel =
@@ -317,10 +348,10 @@ wp.samp <- webppl(program_code = alzheimersTestModel,
                                       list(steps = 10,
                                            stepSize = 0.01)),
                           samples = numSamples,
-                          burn = 50,
+                          burn = numSamples/2,
                           verbose = TRUE),
       model_var = "model",
-      packages = c("./utils", "./utils/node_modules/underscore"),
+      packages = c("./utils"),
       output_format = "samples"
       )
 
@@ -352,5 +383,11 @@ wp.samp %>%
 
 ```
 
+### Exercise 6.7.1
 
+Suppose the utilities are very different, so that a false alarm costs $100, because of the risk of litigation in a false accusation, but misses are relatively harmless, costing $10 in wasted administrative costs. What decisions should be made about bona fide and cheating people now?
+
+### Exercise 6.7.2
+
+What other potential information, besides the uncertainty about classification, does the model provide? Give at least one concrete example.
 
