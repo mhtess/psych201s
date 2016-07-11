@@ -1,0 +1,356 @@
+---
+title: "ch6"
+author: "mht"
+date: "October 21, 2014"
+output: html_document
+---
+
+# 6.5 Assessment of malingering
+
+Armed with the knowledge from the previous sections, we now consider the practical challenge of detecting if people cheat on a test. For example, people who have been in a car accident may seek financial compensation from insurance companies by feigning cognitive impairment such as pronounced memory loss. When these people are confronted with a memory test that is intended to measure the extent of their impairment, they may deliberately under-perform. This behavior is called malingering, and it may be accompanied by performance much worse than that displayed by real amnesiacs. Sometimes, for example, malingerers may perform substantially below chance.
+
+Malingering is not, however, always easy to detect, but is naturally addressed by latent-mixture modeling. Using this approach, it is possible to infer which of two categories—those who malinger, and those who are truthful or bona fide—each person belongs to, and quantify the confidence in each of these classifications.
+
+```{r 6.5.1}
+malingeringModel <- '
+var data = [45, 45, 44, 45, 44, 45, 45,
+            45, 45, 45, 30, 20,  6, 44, 
+            44, 27, 25, 17, 14, 27, 35, 30];
+var n_people = data.length;
+var n_questions = 45;
+
+var sampleGroup = function() { return flip(0.5) ? "bonafide" : "malingerer" }
+
+var model = function() {
+  var bonaFideRate = uniform(0.5,1)
+  var malingererRate = uniform(0,bonaFideRate)
+  var personAssignments = repeat(n_people, sampleGroup)
+
+  foreach(utils.range(0, n_people), function(person_id) {
+    var pAssignment = personAssignments[person_id]
+    var successRate = (pAssignment == "bonafide") ? bonaFideRate : malingererRate
+    observe({data: data[person_id], 
+             link: Binomial({p: successRate, n: n_questions})})
+    query.add("successRate" + person_id, successRate)
+  })
+
+  // Add to query table
+  query.add("bonaFide", bonaFideRate)
+  query.add("malingerer", malingererRate)
+  foreach(utils.range(0, n_people), function(i){
+    query.add("person_" + i, personAssignments[i])
+  })
+  return query
+}
+'
+
+numSamples = 500
+wp.samp <- webppl(program_code = malingeringModel,
+       inference_opts = list(method="MCMC",
+                             kernel =
+                               list(HMC =
+                                      list(steps = 25,
+                                           stepSize = 0.001)),
+                          samples = numSamples,
+                          burn = numSamples/2,
+                          verbose = TRUE),
+      model_var = "model",
+      packages = c("./utils"),
+      output_format = "samples"
+      )
+
+# Plot alpha/beta
+wp.samp %>% 
+  select(bonaFide, malingerer) %>% 
+  gather(parameter, value) %>%
+  ggplot(aes(x= value, fill = parameter)) + 
+  geom_histogram() +
+  theme_bw()
+
+# Plot per-person params
+wp.samp %>%
+  select(starts_with("person")) %>%
+  gather(parameter, value) %>%
+  mutate(parameter = factor(parameter,
+                            levels = paste("person",0:21, sep = "_"))) %>%
+  ggplot(., aes(x= value, fill = value)) + 
+  geom_bar()+
+  facet_wrap(~parameter) +
+  theme_bw()
+
+```
+
+Because this was an experimental study, we know that the first 10 participants were bona fide and the next 12 were instructed to malinger.
+
+### Exercise 6.5.1 
+
+What are your conclusions about group membership? Did all of the participants follow the instructions?
+
+
+# 6.6 Individual differences in malingering
+
+As before, it may seem restrictive to assume that all members of a group have the same chance of answering correctly. So, now we assume that the ith participant in each group has a unique rate of answering questions correctly, θi, which is constrained by group-level distributions. In Section 6.2, we used group-level Gaussians. The problem with that approach is that values can lie outside the range 0 to 1. These values were just censored in Section 6.2, but this is not quite technically correct, and is certainly not elegant.
+
+One of several alternatives is to assume that instead of being Gaussian, the group-level distribution is Beta(alpha,beta).
+
+It is useful to transform the α and β parameters from the beta distribution to a group mean μ = α/(α+β) and a measure λ = α+β that can be conceived of as a precision, in the sense that as it increases the variability of the distribution decreases. It is then straightforward to assign uniform priors to both μb, the group- level mean for the bona fide participants, and μm, the group-level mean for the malingerers. This assignment does not, however, reflect our knowledge that μb > μm. To capture this knowledge, we could define dunif(0,mubon), as done in the previous model.
+
+However, for this model we apply a different approach. We first define μm as the additive combination of μb and a difference parameter, so that logit(μm) = logit(μb) − μd. Note that this is an additive combination on the logit scale, as is customary in beta-binomial models. The logit transformation is defined as logit(θ) ≡ ln(θ/(1 − θ)) and it transforms values on the rate scale, ranging from 0 to 1, to values on the logit scale, ranging from −∞ to ∞.
+
+```{r 6.6.1}
+indDiffMalingeringModel <- '
+var data = [45, 45, 44, 45, 44, 45, 45,
+            45, 45, 45, 30, 20,  6, 44, 
+            44, 27, 25, 17, 14, 27, 35, 30];
+var n_people = data.length;
+var n_questions = 45;
+
+var positiveGaussian = function(mu, sigma) {
+  var gaussianSample = gaussian(mu, sigma)
+  factor(gaussianSample > 0 ? gaussianSample : -Infinity)
+  return gaussianSample
+}
+
+var shape_alpha = function(mean, concentration) { 
+  return mean*concentration
+}
+
+var shape_beta = function(mean, concentration) { 
+  return (1-mean)*concentration
+}
+
+// logit(mu_mal) = logit(mu_b) - mu_d
+// -> mu_mal = 1/(1 + e^{-logit(mu_b) + mu_d})
+var calcMuMal = function(mu_b, mu_d) {
+  var ratio = (1 - mu_b) / mu_b
+  return 1 / (1 + ratio * Math.exp(mu_d));
+}
+
+var model = function() {
+  // Assign groups with baserate phi
+  var phi = beta(5,5) 
+  var sampleGroup = function() { return flip(phi) ? "bonafide" : "malingerer" }
+
+  var personAssignments = repeat(n_people, sampleGroup)
+  
+  // Sample group parameters
+  var muDiff = positiveGaussian(0, 0.5)
+  var muBon = beta(1,1)
+  var muMal = calcMuMal(muBon, muDiff)
+  var lambdaBon = uniform(40, 800)
+  var lambdaMal = uniform(4, 100)
+  
+  // make these as muBon and muMal ... (then just sample from betas for indiv.diff.)
+  var bonaFideRate = uniform(0.5,1)
+  var malingererRate = uniform(0,bonaFideRate)
+
+  
+
+  foreach(utils.range(0, n_people), function(person_id) {
+    var pAssignment = personAssignments[person_id]
+    var successRate = (pAssignment == "bonafide")  ? 
+                       beta(muBon * lambdaBon, (1 - muBon) * lambdaBon) :
+                       beta(muMal * lambdaMal, (1 - muMal) * lambdaMal )
+    observe({data: data[person_id], 
+             link: Binomial({p: successRate, n: n_questions})})
+    query.add("successRate" + person_id, successRate)
+  })
+
+  // Add to query table
+  query.add("phi", phi)
+  query.add("muMal", muMal)
+  query.add("muBon", muBon)
+  foreach(utils.range(0, n_people), function(i){
+    query.add("person_" + i, personAssignments[i])
+  })
+  return query
+}
+'
+
+numSamples = 500
+wp.samp <- webppl(program_code = indDiffMalingeringModel,
+       inference_opts = list(method="MCMC",
+                             kernel =
+                               list(HMC =
+                                      list(steps = 5,
+                                           stepSize = 0.001)),
+                          samples = numSamples,
+                          burn = numSamples/2,
+                          verbose = TRUE),
+      model_var = "model",
+      packages = c("./utils"),
+      output_format = "samples"
+      )
+
+# Plot phi
+wp.samp %>% 
+  select(phi) %>% 
+  ggplot(aes(x= phi)) + 
+  geom_histogram() +
+  theme_bw()
+
+# Plot alpha/beta
+wp.samp %>% 
+  select(muMal, muBon) %>% 
+  gather(parameter, value) %>%
+  ggplot(aes(x= value, fill = parameter)) + 
+  geom_histogram() +
+  theme_bw()
+
+# Plot per-person params
+wp.samp %>%
+  select(starts_with("person")) %>%
+  gather(parameter, value) %>%
+  mutate(parameter = factor(parameter,
+                            levels = paste("person",0:21, sep = "_"))) %>%
+  ggplot(., aes(x= value, fill = value)) + 
+  geom_bar()+
+  facet_wrap(~parameter) +
+  theme_bw()
+```
+
+### Exercise 6.6.1 
+
+Is the inferred rate of malingering consistent with what is known
+about the instructions given to participants?
+
+### Exercise 6.6.2 
+
+#### Assume you know that the base rate of malingering is 10%. Change the WinBUGS script to reflect this knowledge. Do you expect any differences?
+
+What differences do we expect? If we know the base rate of malingering is 10%, then many more people will be classified as bona fide. If their performance is *malingering* performance, then the bona fide group mean will be lower. What does the bona fide group mean look like?
+
+What else might we suspect? Well, if the bona fide group now includes some people classified as malingerers, the variance (or precision) might increase for the bona fide group.  What does the bona fide group precision look like?
+
+We might also suspect that the mean for the malingerer group **won't** change as much, and the precision might go up a little.
+
+```{r 6.6.2a, echo=FALSE}
+
+```
+
+
+```{r 6.6.2}
+
+```
+
+This doesn't have a huge effect.
+
+### Exercise 6.6.3 
+
+Assume you know for certain that participants 1, 2, and 3 are bona
+fide. Change the code to reflect this knowledge.
+
+```{r 6.6.2}
+
+```
+
+
+# 6.7 Alzheimer's recall test cheating
+
+Simple recognition and recall tasks are an important part of screening for Alzheimer’s Disease and Related Disorders (ADRD), and are sometimes administered over the telephone. This practice raises the possibility of people cheating by, for example, writing down the words they are being asked to remember.
+
+By design, there are 61 bona fide people who are known to have done the task as intended, and 57 people who are known to have cheated.
+
+** Super slow, but just because there are so many people I think...**
+
+```{r 6.7.1}
+alzheimersTestModel <- '
+var data = observed_data
+var n_people = data.length;
+var n_questions = 40;
+
+var positiveGaussian = function(mu, sigma) {
+  var gaussianSample = gaussian(mu, sigma)
+  factor(gaussianSample > 0 ? gaussianSample : -Infinity)
+  return gaussianSample
+}
+
+// logit(mu_mal) = logit(mu_b) - mu_d
+// -> mu_mal = 1/(1 + e^{-logit(mu_b) - mu_d})
+var calcMuMal = function(mu_b, mu_d) {
+  var ratio = (1 - mu_b) / mu_b
+  return 1 / (1 + ratio * Math.exp(-mu_d));
+}
+
+var model = function() {
+  // Assign groups with baserate phi
+  var phi = beta(5,5) 
+  var personAssignments = repeat(n_people, function() {return flip(phi)})
+  
+  // Sample group parameters
+  var muDiff = positiveGaussian(0, 0.5)
+  var muBon = beta(1,1)
+  var muCheat = calcMuMal(muBon, muDiff)
+  var lambdaBon = uniform(5, 50)
+  var lambdaCheat = uniform(5, 50)
+  foreach(_.range(0, n_people), function(person_id) {
+    var pAssignment = personAssignments[person_id]
+    var successRate = (pAssignment ? 
+                       beta(muBon * lambdaBon, (1 - muBon) * lambdaBon) :
+                       beta(muCheat * lambdaCheat, (1 - muCheat) * lambdaCheat ))
+    observe({data: data[person_id], 
+             link: Binomial({p: successRate, n: n_questions})})
+    query.add("successRate" + person_id, successRate)
+  })
+
+  // Add to query table
+  query.add("phi", phi)
+  query.add("muCheat", muCheat)
+  query.add("muBon", muBon)
+  foreach(_.range(0, n_people), function(i){
+    query.add("person_" + i, personAssignments[i])
+  })
+  return query
+}
+'
+
+cheatCounts  <- rowSums(read.table("ParameterEstimation/webppl/cheat.txt",
+                                   header=F,sep=","))
+
+numSamples = 1000
+wp.samp <- webppl(program_code = alzheimersTestModel,
+       data = rowSums(cheat.dat),
+       data_var = "observed_data",
+       inference_opts = list(method="MCMC",
+                             kernel =
+                               list(HMC =
+                                      list(steps = 10,
+                                           stepSize = 0.01)),
+                          samples = numSamples,
+                          burn = 50,
+                          verbose = TRUE),
+      model_var = "model",
+      packages = c("./utils", "./utils/node_modules/underscore"),
+      output_format = "samples"
+      )
+
+# Plot alpha/beta
+wp.samp %>%
+  select(phi) %>%
+  ggplot(aes(x= phi)) +
+  geom_histogram() +
+  theme_bw()
+
+# # Plot alpha/beta
+wp.samp %>%
+  select(muCheat, muBon) %>%
+  gather(parameter, value) %>%
+  ggplot(aes(x= value, fill = parameter)) +
+  geom_histogram() +
+  theme_bw()
+
+# # Plot per-person params
+wp.samp %>%
+  select(starts_with("person")) %>%
+  gather(parameter, value) %>%
+  mutate(parameter = factor(parameter,
+                            levels = paste("person",0:117, sep = "_"))) %>%
+  ggplot(., aes(x= value, fill = value)) +
+  geom_bar()+
+  facet_wrap(~parameter) +
+  theme_bw()
+
+```
+
+
+
