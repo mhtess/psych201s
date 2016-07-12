@@ -176,12 +176,12 @@ var model = function() {
 '
 
 
-numSamples = 2000
+numSamples = 1800
 wp.samp <- webppl(program_code = indDiffMalingeringModel,
        inference_opts = list(method="MCMC",
                              kernel =
                                list(HMC =
-                                      list(steps = 23,
+                                      list(steps = 20,
                                            stepSize = 0.00075)),
                           samples = numSamples,
                           burn = numSamples/2,
@@ -259,9 +259,7 @@ Suppose you add a new participant. What number of questions
 answered correctly by this participant would lead to the greatest uncertainty
 about their group membership?
 
-### Exercise 6.6.6
-
-Try to solve the label-switching problem by using the dunif(0,mubon) approach instead of the logit transform.
+### Exercise 6.6.6 (skip)
 
 ### Exercise 6.6.7
 
@@ -269,119 +267,7 @@ Why are the priors for lambda bon and lambda mal different?
 
 # 6.7 Alzheimer's recall test cheating
 
-Simple recognition and recall tasks are an important part of screening for Alzheimer’s Disease and Related Disorders (ADRD), and are sometimes administered over the telephone. This practice raises the possibility of people cheating by, for example, writing down the words they are being asked to remember.
-
-By design, there are 61 bona fide people who are known to have done the task as intended, and 57 people who are known to have cheated.
-
-** Super slow, but just because there are so many people I think...**
-
-```{r 6.7.1}
-alzheimersTestModel <- '
-var data = observed_data
-var n_people = data.length;
-var n_questions = 40;
-
-var positiveGaussian = function(mu, sigma) {
-  var gaussianSample = gaussian(mu, sigma)
-  factor(gaussianSample > 0 ? gaussianSample : -Infinity)
-  return gaussianSample
-}
-
-// In this problem, we use a reparameterization of the beta distribution
-// defined in terms of its mean and concentration. This is a helper function
-// that lets us easily sample from that reparameterized distribution
-var beta_mu_lambda = function(mean, concentration) {
-  return beta(mean*concentration, (1-mean)*concentration);
-}
-
-// logit(mu_mal) = logit(mu_b) - mu_d
-// -> mu_mal = 1/(1 + e^{-logit(mu_b) - mu_d})
-var calcMuMal = function(mu_b, mu_d) {
-  var ratio = (1 - mu_b) / mu_b
-  return 1 / (1 + ratio * Math.exp(-mu_d));
-}
-
-var model = function() {
-  // Assign groups with baserate phi
-  var phi = beta(5,5) 
-  var sampleGroup = function() { return flip(phi) ? "bonafide" : "cheater" }
-  var personAssignments = repeat(n_people, function() {return flip(phi)})
-  
-  // Sample group parameters
-  var muDiff = positiveGaussian(0, 0.5)
-  var muBon = beta(1,1)
-  var muCheat = calcMuMal(muBon, muDiff)
-  var lambdaBon = uniform(5, 50)
-  var lambdaCheat = uniform(5, 50)
-  foreach(utils.range(0, n_people), function(person_id) {
-    var pAssignment = personAssignments[person_id]
-    var successRate = (pAssignment == "bonafide")  ? 
-                       beta_mu_lambda(muBon, lambdaBon) :
-                       beta_mu_lambda(muCheat, lambdaCheat);
-    observe({data: data[person_id], 
-             link: Binomial({p: successRate, n: n_questions})})
-    query.add("successRate" + person_id, successRate)
-  })
-
-  // Add to query table
-  query.add("phi", phi)
-  query.add("muCheat", muCheat)
-  query.add("muBon", muBon)
-  foreach(utils.range(0, n_people), function(i){
-    query.add("person_" + i, personAssignments[i])
-  })
-  return query
-}
-'
-
-dataLoc = 'https://raw.githubusercontent.com/mhtess/psych201s/master/data/cheat.txt'
-
-cheatCounts  <- rowSums(read.table(dataLoc, header=F,sep=","))
-
-numSamples = 1000
-wp.samp <- webppl(program_code = alzheimersTestModel,
-       data = cheatCounts,
-       data_var = "observed_data",
-       inference_opts = list(method="MCMC",
-                             kernel =
-                               list(HMC =
-                                      list(steps = 10,
-                                           stepSize = 0.01)),
-                          samples = numSamples,
-                          burn = numSamples/2,
-                          verbose = TRUE),
-      model_var = "model",
-      packages = c("./utils"),
-      output_format = "samples"
-      )
-
-# Plot alpha/beta
-wp.samp %>%
-  select(phi) %>%
-  ggplot(aes(x= phi)) +
-  geom_histogram() +
-  theme_bw()
-
-# # Plot alpha/beta
-wp.samp %>%
-  select(muCheat, muBon) %>%
-  gather(parameter, value) %>%
-  ggplot(aes(x= value, fill = parameter)) +
-  geom_histogram() +
-  theme_bw()
-
-# # Plot per-person params
-wp.samp %>%
-  select(starts_with("person")) %>%
-  gather(parameter, value) %>%
-  mutate(parameter = factor(parameter,
-                            levels = paste("person",0:117, sep = "_"))) %>%
-  ggplot(., aes(x= value, fill = value)) +
-  geom_bar()+
-  facet_wrap(~parameter) +
-  theme_bw()
-
-```
+Don't worry about running this model, just read the section and answer these high level questions!
 
 ### Exercise 6.7.1
 
