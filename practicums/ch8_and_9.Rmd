@@ -4,10 +4,9 @@ author: "mht"
 date: "October 30, 2014"
 output: html_document
 ---
-
 # Chapter 8: Comparing Gaussian Means
 
-When we use the one-sample t-test, we assume that the data follow a Gaussian distribution with unknown mean μ and unknown variance σ2. This is a natural assumption for a within-subjects experimental design, like that undertaken by Dr Smith. The data consist of one sample of standardized difference scores (i.e., “winter scores − summer scores”). The null hypothesis states that the mean of the difference scores is equal to zero, that is, H0 : μ = 0. The alternative hypothesis states that themeanisnotequaltozero,thatis,H1 :μ̸=0.
+When we use the one-sample t-test, we assume that the data follow a Gaussian distribution with unknown mean mu and unknown variance sigma^2. This is a natural assumption for a within-subjects experimental design, like that undertaken by Dr Smith. The data consist of one sample of standardized difference scores (i.e., “winter scores − summer scores”). The null hypothesis states that the mean of the difference scores is equal to zero, that is, H0 : mu = 0. The alternative hypothesis states that the mean is not equal to zero, that is, H1: mu != 0.
 
 ## 8.1 One-sample comparison
 
@@ -28,16 +27,34 @@ setwd("~/Repos/psych201s/practicums/")
 ```{r 8.1.1}
 model<- 
 '// One-Sample Comparison of Means
+
+var discreteCauchy = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(-5, 5, .05);
+  var params = {location: 0, scale : 1};
+  var probs = map(function(b){ Math.exp(Cauchy(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
+
+var discreteGaussian = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(-5, 5, .05);
+  var params = {mu: 0, sigma : 1};
+  var probs = map(function(b){ Math.exp(Gaussian(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
+
 var model = function(){
-  var delta = sample(Cauchy({location: 0, scale: 1}));
-  // var delta = sample(Gaussian({mu: 0, sigma: 1}));
-  var sigma = Math.abs(sample(Cauchy({location: 0, scale: 1})));
+  var nullModel = flip()
+  var delta = nullModel ? 0 : sample(discreteCauchy);
+  // var delta = nullModel ? 0 : sample(discreteGaussian);
+  
+  var sigma = Math.abs(sample(discreteCauchy));
   var mu = delta*sigma;
   observe({
     data: data,
     link: Gaussian({mu:mu, sigma: sigma})
   })
   return {
+    nullModel: nullModel,
     delta: delta,
     sigma: sigma
   }
@@ -55,42 +72,36 @@ Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-
 x <- Winter-Summer # allowed because it is a within-subjects design
 x <- x/sd(x)       # standardize
 
-numSamples = 15000
 rs <- webppl(model,
        model_var= "model",
-       inference_opts = list(method = "MCMC",
-                             samples = numSamples,
-                             burn = numSamples/2,
+       inference_opts = list(method = "enumerate",
                              verbose = TRUE),
       packages = c("./utils"),
-      output_format = "samples",
       data = x,
       data_var = "data"
 )
 
+ggplot(rs %>% group_by(delta) %>% summarize(prob = sum(prob)), 
+       aes(x = delta, y = prob))+
+  geom_line()
 
-rs.tidy <- rs %>% 
-  gather(param, value)
+ggplot(rs %>% group_by(sigma) %>% summarize(prob = sum(prob)), 
+       aes(x = sigma, y = prob))+
+  geom_line()
 
-ggplot(rs.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~param, scales = 'free')
+ggplot(rs %>% group_by(nullModel) %>% summarize(prob = sum(prob)), 
+       aes(x = nullModel, y = prob))+
+  geom_bar(stat = 'identity')
 ```
 
 Compute Bayes Factor using the Savage-Dickey method
 
 ```{r}
-fit.posterior <- logspline(rs$delta)
+nullProbsTable <- rs %>% 
+  group_by(nullModel) %>% 
+  summarize(prob = sum(prob)) 
 
-# posterior density at critical value: delta = 0
-posteriorProbability <- dlogspline(0, fit.posterior)
-
-# prior density at critical value: delta = 0
-priorProbability <- dcauchy(x=0, location = 0, scale = 1)
-# priorProbability <- dnorm(x = 0)
-
-# bayes factor 01: null vs. alternative
-BF01 <- posteriorProbability/priorProbability
+BF01 = nullProbsTable[2,2]/ nullProbsTable[1,2] 
 
 print(paste("The null hypothesis is", BF01, "times more likely than the alternative hypothesis."))
 ```
@@ -101,6 +112,7 @@ The Bayes factor between H0 and H1 is `r BF01`
 
 We also assumed a Cauchy prior distribution on effect size delta. Other choices are possible and reasonable. One such choice is the standard Gaussian distribution. Do you think this prior will lead to substantially different conclusions? Why or why not? Convince yourself by implementing the standard Gaussian prior and studying the result.
 
+Hint: Remember to switch the priorProbability to use the gaussian as well 
 
 ## 8.2 Order-restricted one-sample comparison
 
@@ -108,23 +120,31 @@ Order-restricted hypothesis is also known as one-sided hypothesis.
 ```{r 8.2}
 model<- 
 '
-var model = function(){
-  var delta = -1*Math.abs(sample(Cauchy({location: 0, scale: 1})));
-  // var delta = Math.abs(sample(Cauchy({location: 0, scale: 1})));
+var halfDiscreteCauchy = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(-10.001, 0.0, .05);
+  var params = {location: 0, scale : 1};
+  var probs = map(function(b){ Math.exp(Cauchy(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
 
-  var sigma = Math.abs(sample(Cauchy({location: 0, scale: 1})));
+var model = function(){
+  var nullModel = flip()
+  var delta = nullModel ? 0 : sample(halfDiscreteCauchy);
+
+  var sigma = -1 * sample(halfDiscreteCauchy);
   var mu = delta*sigma;
+
   observe({
     data: data,
     link: Gaussian({mu:mu, sigma: sigma})
   })
+
   return {
+    nullModel: nullModel,
     delta: delta,
     sigma: sigma
   }
 }'
-
-
 
 # Read data Dr. Smith
 Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
@@ -136,74 +156,76 @@ Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-
 x <- Winter-Summer # allowed because it is a within-subjects design
 x <- x/sd(x)       # standardize
 
-numSamples = 10000
 rs <- webppl(model,
        model_var= "model",
-       inference_opts = list(method = "MCMC",
-                             kernel = list(
-                               HMC = list(
-                                 steps = 5,
-                                 stepSize = 0.01
-                               )
-                             ),
-                             samples = numSamples,
-                             burn = numSamples/2,
-                             verbose = TRUE),
+       inference_opts = list(method="enumerate",
+                          verbose = TRUE),
       packages = c("./utils"),
-      output_format = "samples",
       data = x,
       data_var = "data"
 )
 
+ggplot(rs %>% group_by(delta) %>% summarize(prob = sum(prob)), 
+       aes(x = delta, y = prob))+
+  geom_line()
 
-rs.tidy <- rs %>% 
-  gather(param, value)
+ggplot(rs %>% group_by(sigma) %>% summarize(prob = sum(prob)), 
+       aes(x = sigma, y = prob))+
+  geom_line()
 
-ggplot(rs.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~param, scales = 'free')
+ggplot(rs %>% group_by(nullModel) %>% summarize(prob = sum(prob)), 
+       aes(x = nullModel, y = prob))+
+  geom_bar(stat = 'identity')
+
 ```
 
 Compute Bayes Factor using the Savage-Dickey method
 
 ```{r}
-fit.posterior <- logspline(rs$delta)
+nullProbsTable <- rs %>% 
+  group_by(nullModel) %>% 
+  summarize(prob = sum(prob)) 
 
-# posterior density at critical value: delta = 0
-posteriorProbability <- dlogspline(0, fit.posterior)
-
-# prior density at critical value: delta = 0
-priorProbability <- dcauchy(x=0, location = 0, scale = 1)
-
-# bayes factor 01: null vs. alternative
-BF01 <- posteriorProbability/priorProbability
+BF01 = nullProbsTable[2,2]/ nullProbsTable[1,2] 
 
 print(paste("The null hypothesis is", BF01, "times more likely than the alternative hypothesis."))
 ```
 
-### Exercise 8.2.1
-
-For completeness, estimate the Bayes factor for the summer and
-winter data between H0 : delta = 0 versus H3 : Cauchy 0, 1 I(0,∞,), involving the order-restricted alternative hypothesis that assumes the effect is positive.
-
 ### Exercise 8.2.2
 
-In this example, it matters whether the alternative hypothesis is unrestricted, order-restricted to negative values for δ, or order-restricted to positive values for δ. Why is this perfectly reasonable? Can you think of a situation where the three versions of the alternative hypothesis yield exactly the same Bayes factor?
+In this example, it matters whether the alternative hypothesis is unrestricted, order-restricted to negative values for delta, or order-restricted to positive values for delta. Why is this perfectly reasonable? Can you think of a situation where the three versions of the alternative hypothesis yield exactly the same Bayes factor?
 
 # 8.3 Two sample
 
 ```{r 8.3,fig.width=10, fig.height=4, echo=FALSE}
 twoSampleModel <- 
 '// One-Sample Comparison of Means
+console.log("enumerating... This may take a couple minutes.")
+var positiveDiscreteCauchy = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(0.001, 3, .1);
+  var params = {location: 0, scale : 1};
+  var probs = map(function(b){ Math.exp(Cauchy(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
+
+var discreteCauchy = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(-3, 3, .1);
+  var params = {location: 0, scale : 1};
+  var probs = map(function(b){ Math.exp(Cauchy(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
+
 var model = function(){
+  var nullModel = flip()
+
   // standardized effect size
-  var delta = sample(Cauchy({location: 0, scale: 1}));
+  var delta = nullModel ? 0 : sample(discreteCauchy);
 
   // mean of means
-  var mu = sample(Cauchy({location: 0, scale: 1}));
+  var mu = sample(discreteCauchy);
 
   // standard deviation
-  var sigma = Math.abs(sample(Cauchy({location: 0, scale: 1})));
+  var sigma = Math.abs(sample(positiveDiscreteCauchy));
 
   // difference between the means
   var alpha = delta*sigma;
@@ -219,6 +241,7 @@ var model = function(){
   })
 
   return {
+    nullModel : nullModel,
     delta: delta,
     mu: mu,
     sigma: sigma
@@ -234,46 +257,39 @@ y <- (y - mean(x))/sd(x)
 x <- (x - mean(x))/sd(x)
 
 observed_data = list(x = x, y = y)
-numSamples = 3000
+
 rs <- webppl(twoSampleModel,
        model_var= "model",
-       inference_opts = list(method = "MCMC",
-                             kernel = list(
-                               HMC = list(
-                                 steps = 25,
-                                 stepSize = 0.01
-                               )
-                             ),
-                             samples = numSamples,
-                             burn = numSamples/2,
+       inference_opts = list(method = "enumerate",
                              verbose = TRUE),
       packages = c("./utils"),
-      output_format = "samples",
       data = observed_data,
       data_var = "data"
 )
 
-rs.tidy <- rs %>% 
-  gather(param, value)
+ggplot(rs %>% group_by(delta) %>% summarize(prob = sum(prob)), 
+       aes(x = delta, y = prob))+
+  geom_line()
 
-ggplot(rs.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~param, scales = 'free')
+ggplot(rs %>% group_by(mu) %>% summarize(prob = sum(prob)), 
+       aes(x = mu, y = prob))+
+  geom_line()
+
+ggplot(rs %>% group_by(sigma) %>% summarize(prob = sum(prob)), 
+       aes(x = sigma, y = prob))+
+  geom_line()
+
+ggplot(rs %>% group_by(nullModel) %>% summarize(prob = sum(prob)), 
+       aes(x = nullModel, y = prob))+
+  geom_bar(stat = 'identity')
 ```
 
-Note: this requires estimates of probabilities way out in the tail of the distribution, which can be pretty unstable: try running it a few times to see if you get something reasonable
-
 ```{r}
-fit.posterior <- logspline(rs$delta)
+nullProbsTable <- rs %>% 
+  group_by(nullModel) %>% 
+  summarize(prob = sum(prob)) 
 
-# posterior density at critical value: delta = 0
-posteriorProbability <- dlogspline(0, fit.posterior)
-
-# prior density at critical value: delta = 0
-priorProbability <- dcauchy(x=0, location = 0, scale = 1)
-
-# bayes factor 01: null vs. alternative
-BF01 <- posteriorProbability/priorProbability
+BF01 = nullProbsTable[2,2]/ nullProbsTable[1,2] 
 
 print(paste("The null hypothesis is", BF01, "times more likely than the alternative hypothesis."))
 
