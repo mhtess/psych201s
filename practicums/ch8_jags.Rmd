@@ -1,0 +1,747 @@
+---
+title: "ch8"
+author: "mht"
+date: "October 30, 2014"
+output: html_document
+---
+
+# Chapter 8: Comparing Gaussian Means
+
+When we use the one-sample t-test, we assume that the data follow a Gaussian distribution with unknown mean μ and unknown variance σ2. This is a natural assumption for a within-subjects experimental design, like that undertaken by Dr Smith. The data consist of one sample of standardized difference scores (i.e., “winter scores − summer scores”). The null hypothesis states that the mean of the difference scores is equal to zero, that is, H0 : μ = 0. The alternative hypothesis states that themeanisnotequaltozero,thatis,H1 :μ̸=0.
+
+## 8.1 One-sample comparison
+
+```{r 8.1.1,fig.width=10, fig.height=4, echo=FALSE}
+library(R2jags)
+library(gridExtra)
+library(reshape2)
+library(polspline)
+library(ggplot2)
+
+setwd("/Users/mht/Documents/learning/tfbt/Lee&Wagenmakers/Code/ModelSelection/Means/")
+
+
+
+cat('# One-Sample Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  lambda <- pow(sigma,-2)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta)
+  lambdasigma ~ dchisqr(1)
+  sigmatmp ~ dnorm(0,lambdasigma)
+  sigma <- abs(sigmatmp)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,lambdadeltaprior)
+  lambdadeltaprior ~ dchisqr(1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)),
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)),
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior)
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+df$delta.prior<-rcauchy(length(df$delta.posterior),0,1)
+
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,3)+
+  xlab('Delta')
+```
+
+
+The Bayes factor between H0 and H1 is `r BF01`
+
+### Exercise 8.1.1 
+
+Here we assumed a half-Cauchy prior distribution on the standard deviation sigma. Other choices are possible and reasonable. Can you think of a few?
+
+Ans: Gamma(0.001,0.001), Uniform(0,20)
+
+### Exercise 8.1.2 
+
+Do you think the different priors on sigma will lead to substantially different conclusions? Why or why not? Convince yourself by implementing a different prior and studying the result.
+
+Ans: I don't think the priors will make a difference. (My prior is that they won't make a difference). I don't actually have strong feelings why or why not.
+
+
+```{r 8.1.2,fig.width=10, fig.height=4, echo=FALSE}
+cat('# One-Sample Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  sigma <- pow(lambda,-0.5)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta)
+  lambda ~ dgamma(.001,.001)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,lambdadeltaprior)
+  lambdadeltaprior ~ dchisqr(1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = rnorm(1,0,3), lambda = 1),
+  list(delta = rnorm(1,0,3), lambda = 1),
+  list(delta = rnorm(1,0,3), lambda = 1))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(
+  data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=
+                   samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior)
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+df$delta.prior<-rcauchy(
+  length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,3)+
+  xlab('Delta')
+```
+
+Bayes Factor `r BF01`
+
+MH: If I implemented this correctly, then there is no substantial difference.
+
+### Exercise 8.1.3 
+
+We also assumed a Cauchy prior distribution on effect size delta. Other choices are possible and reasonable. One such choice is the standard Gaussian distribution. Do you think this prior will lead to substantially different conclusions? Why or why not? Convince yourself by implementing the standard Gaussian prior and studying the result.
+
+```{r 8.1.3,fig.width=10, fig.height=4, echo=FALSE}
+cat('# One-Sample Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  sigma <- pow(lambda,-0.5)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  delta ~ dnorm(0,1)
+  lambda ~ dgamma(.001,.001)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = rnorm(1,0,3), lambda = 1),
+  list(delta = rnorm(1,0,3), lambda = 1),
+  list(delta = rnorm(1,0,3), lambda = 1))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+       	model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior)
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-dnorm(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+df$delta.prior<-rcauchy(length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,3)+
+  xlab('Delta')
+```
+
+Bayes Factor `r BF01`
+
+
+## 8.2 Order-restricted one-sample comparison
+
+Order-restricted hypothesis is also known as one-sided hypothesis.
+
+
+```{r 8.2,fig.width=10, fig.height=4, echo=FALSE}
+cat('# One-Sample Order Restricted Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  lambda <- pow(sigma,-2)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta)T(,0) 
+  lambdasigma ~ dchisqr(1)
+  sigmatmp ~ dnorm(0,lambdasigma)
+  sigma <- abs(sigmatmp)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,lambdadeltaprior)T(,0)
+  lambdadeltaprior ~ dchisqr(1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = -abs(rnorm(1,0,1)), sigmatmp = .1),
+  list(delta = -abs(rnorm(1,0,1)), sigmatmp = .2),
+  list(delta = -abs(rnorm(1,0,1)), sigmatmp = .3))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior, ubound=0) #NEW
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-2*dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+
+df$delta.prior<-rcauchy(length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,0.2)+
+  ylim(0,10)+
+  xlab('Delta')
+```
+
+Bayes Factor `r BF01`
+
+### Exercise 8.2.1 
+
+For completeness, estimate the Bayes factor for the summer and winter data between H0 : δ = 0 versus H3 : Cauchy􏰈0, 1􏰉I(0,∞,), involving the order-restricted alternative hypothesis that assumes the effect is positive.
+
+```{r 8.2.1,fig.width=10, fig.height=4, echo=FALSE}
+
+cat('# One-Sample Order Restricted Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  lambda <- pow(sigma,-2)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta)T(0,)
+  lambdasigma ~ dchisqr(1)
+  sigmatmp ~ dnorm(0,lambdasigma)
+  sigma <- abs(sigmatmp)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,lambdadeltaprior)T(0,)
+  lambdadeltaprior ~ dchisqr(1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = abs(rnorm(1,0,1)), sigmatmp = .1),
+  list(delta = abs(rnorm(1,0,1)), sigmatmp = .2),
+  list(delta = abs(rnorm(1,0,1)), sigmatmp = .3))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+       	model.file =f,n.chains=3, n.iter=10000, 
+         n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior, lbound=0) #NEW
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-2*dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+df$delta.prior<-rcauchy(length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(0,3)+
+  ylim(0,10)+
+  xlab('Delta')
+```
+
+Bayes Factor `r BF01`
+
+### Exercise 8.2.2
+
+In this example, it matters whether the alternative hypothesis is unrestricted, order-restricted to negative values for δ, or order-restricted to positive values for δ. Why is this perfectly reasonable? Can you think of a situation where the three versions of the alternative hypothesis yield exactly the same Bayes factor?
+
+Ans: This is reasonable because, intuitively, to classify evidence as for or against one hypothesis, you need to know the range that the alternative hypothesis is defined over. A negative number may support a hypothesis of 0, when the alternative is defined over positive numbers.
+
+The three versions should be the same when all the evidence is centered at 0, the "null hypothesis". Are there other times?
+
+### Exercise 8.2.3  
+
+From a practical standpoint, we do not need a new graphical model and WinBUGS script to compute the Bayes factor for H0 versus the order- restricted H2. Instead, we can use the original graphical model in Figure 8.1 that implements the unrestricted Cauchy distribution and discard those prior and posterior MCMC samples that are inconsistent with the δ < 0 order- restriction. The Savage–Dicky density ratio test still involves the height of the prior and posterior distributions at δ = 0, but now the samples from these distributions are truncated, respecting the order-restriction, such that they range only from δ = −∞ to δ = 0. 
+
+```{r 8.2.3,fig.width=10, fig.height=4, echo=FALSE}
+cat('# One-Sample Comparison of Means
+model{
+  # Data
+  for (i in 1:ndata){
+    x[i] ~ dnorm(mu,lambda)
+  } 
+  mu <- delta*sigma
+  lambda <- pow(sigma,-2)
+  # delta and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta)
+  lambdasigma ~ dchisqr(1)
+  sigmatmp ~ dnorm(0,lambdasigma)
+  sigma <- abs(sigmatmp)
+  # Sampling from Prior Distribution for Delta
+  deltaprior ~ dnorm(0,lambdadeltaprior)
+  lambdadeltaprior ~ dchisqr(1)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+Winter <- c(-0.05,0.41,0.17,-0.13,0.00,-0.05,0.00,0.17,0.29,0.04,0.21,0.08,0.37,0.17,0.08,-0.04,-0.04,0.04,-0.13,-0.12,0.04,0.21,0.17,
+       0.17,0.17,0.33,0.04,0.04,0.04,0.00,0.21,0.13,0.25,-0.05,0.29,0.42,-0.05,0.12,0.04,0.25,0.12)
+ 
+Summer <- c(0.00,0.38,-0.12,0.12,0.25,0.12,0.13,0.37,0.00,0.50,0.00,0.00,-0.13,-0.37,-0.25,-0.12,0.50,0.25,0.13,0.25,0.25,0.38,0.25,0.12,
+      0.00,0.00,0.00,0.00,0.25,0.13,-0.25,-0.38,-0.13,-0.25,0.00,0.00,-0.12,0.25,0.00,0.50,0.00)
+
+x <- Winter-Summer # allowed because it is a within-subjects design
+x <- x/sd(x)       # standardize
+
+ndata <- length(Winter) # number of subjects
+
+data  <- list("x", "ndata") # to be passed on to JAGS
+
+# Note: 3 chains
+myinits <- list(
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)),
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)),
+  list(delta = rnorm(1,0,3), sigmatmp = rnorm(1,0,1)))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=1000, n.thin=1, DIC=T)
+
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+df.reduced <- subset(df,delta.posterior<0)
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df.reduced$delta.posterior) # NEW
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-2*dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+df.reduced$delta.prior<-rcauchy(length(df.reduced$delta.posterior),0,1)
+
+ggplot(data=df.reduced)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,0.2)+
+  ylim(0,10)+
+  xlab('Delta')
+```
+
+# 8.3 Two sample
+
+```{r 8.3,fig.width=10, fig.height=4, echo=FALSE}
+cat('# Two-sample Comparison of Means
+model{ 
+  # Data
+  for (i in 1:n1){
+    x[i] ~ dnorm(mux,lambda)
+  }
+  for (j in 1:n2){
+    y[j] ~ dnorm(muy,lambda)
+  }
+  # Means and precision
+  alpha <- delta*sigma # difference between means
+  mux <- mu+alpha/2  
+  muy <- mu-alpha/2
+  lambda <- pow(sigma,-2)
+  # delta, mu, and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta) #diff / sigma
+  lambdamu ~ dchisqr(1)
+  mu ~ dnorm(0,lambdamu)
+  lambdasigma ~ dchisqr(1)
+  sigmatmp ~ dnorm(0,lambdasigma)
+  sigma <- abs(sigmatmp)
+  # Prior predictive?
+  lambdadeltaprior ~ dchisqr(1)
+  deltaprior ~ dnorm(0,lambdadeltaprior)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+x <- c(70,80,79,83,77,75,84,78,75,75,78,82,74,81,72,70,75,72,76,77)
+y <- c(56,80,63,62,67,71,68,76,79,67,76,74,67,70,62,65,72,72,69,71)
+
+n1 <- length(x)
+n2 <- length(y)
+
+# Rescale
+y <- y - mean(x)
+y <- y/sd(x)
+x <- (x-mean(x))/sd(x); data <- list("x", "y", "n1", "n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmp = runif(1,0,5)),
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmp = runif(1,0,5)),
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmp = runif(1,0,5)))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+   			model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=5000, n.thin=1, DIC=T)
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior) #NEW
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+
+df$delta.prior<-rcauchy(length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,3)+
+  #ylim(0,10)+
+  xlab('Delta')
+```
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+
+## Exercise 8.3.1 
+
+The two-sample comparison of means outlined above assumes that the two groups have equal variance. How can you extend the model when this assumption is not reasonable?
+
+
+```{r 8.3.1,fig.width=10, fig.height=4, echo=FALSE}
+cat('# Two-sample Comparison of Means; unequal variance
+model{ 
+  # Data
+  for (i in 1:n1){
+    x[i] ~ dnorm(mux,lambda)
+  }
+  for (j in 1:n2){
+    y[j] ~ dnorm(muy,lambda)
+  }
+  # Means and precision
+  alpha <- delta*sigma # difference between means
+  mux <- mu+alpha/2  
+  muy <- mu-alpha/2
+  lambda <- pow(sigma,-2)
+
+  sigma <- sqrt(((n1-1)*(sigmax^2)+(n2-1)*(sigmay^2))/(n1+n2-2))
+
+# delta, mu, and sigma Come From (Half) Cauchy Distributions
+  lambdadelta ~ dchisqr(1)
+  delta ~ dnorm(0,lambdadelta) #diff / sigma
+
+  lambdamu ~ dchisqr(1)
+  mu ~ dnorm(0,lambdamu)
+
+  lambdasigmax ~ dchisqr(1)
+  sigmatmpx ~ dnorm(0,lambdasigmax)
+  sigmax <- abs(sigmatmpx)
+  
+  lambdasigmay ~ dchisqr(1)
+  sigmatmpy ~ dnorm(0,lambdasigmay)
+  sigmay <- abs(sigmatmpy)
+  
+ # Prior predictive?
+  lambdadeltaprior ~ dchisqr(1)
+  deltaprior ~ dnorm(0,lambdadeltaprior)
+}',file={f<-tempfile()})
+
+
+
+# Read data Dr. Smith
+x <- c(70,80,79,83,77,75,84,78,75,75,78,82,74,81,72,70,75,72,76,77)
+y <- c(56,80,63,62,67,71,68,76,79,67,76,74,67,70,62,65,72,72,69,71)
+
+n1 <- length(x)
+n2 <- length(y)
+
+# Rescale
+y <- y - mean(x)
+y <- y/sd(x)
+x <- (x-mean(x))/sd(x); 
+
+data <- list("x", "y", "n1", "n2") # to be passed on to JAGS
+
+myinits <- list(
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmpx = runif(1,0,5), sigmatmpy = runif(1,0,5)),
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmpx = runif(1,0,5), sigmatmpy = runif(1,0,5)),
+  list(delta = rnorm(1,0,3), mu = rnorm(1,0,1), sigmatmpx = runif(1,0,5), sigmatmpy = runif(1,0,5)))
+
+# Parameters to be monitored
+parameters <- c("delta")
+
+# The following command calls JAGS with specific options.
+# For a detailed description see the R2jags documentation.
+samples <- jags(data, inits=myinits, parameters,
+     		model.file =f,
+	 			n.chains=3, n.iter=10000, n.burnin=5000, n.thin=1, DIC=T)
+
+df <- data.frame(delta.posterior=samples$BUGSoutput$sims.list$delta)
+
+# Fits a density using spliens to approx. log-density
+# uses 1997 knot and deletion algorithm
+fit.posterior<- logspline(df$delta.posterior)
+
+# 95% CI for log-density (of posterior of effect size)
+ci.low<-qlogspline(0.025,fit.posterior)
+ci.hi<-qlogspline(0.975,fit.posterior)
+
+posterior<-dlogspline(0, fit.posterior) # pdf @ delta=0
+prior<-dcauchy(0) # height of order--restricted prior
+BF01<-posterior/prior # bayes factor
+
+
+df$delta.prior<-rcauchy(
+  length(df$delta.posterior),0,1)
+
+ggplot(data=df)+
+  geom_density(aes(x=delta.posterior),linetype='dashed')+
+  geom_density(aes(x=delta.prior))+
+  geom_point(x=0,y=prior,color='red')+
+  geom_point(x=0,y=posterior,color='blue')+
+  theme_bw()+
+  xlim(-3,3)+
+  #ylim(0,10)+
+  xlab('Delta')
+```
+
+
+Bayes factor is `r BF01` or 1 / `r 1/BF01`
+
+
+#Fin
+
+
+
+
+
+
