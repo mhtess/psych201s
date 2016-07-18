@@ -305,9 +305,19 @@ The two-sample comparison of means outlined above assumes that the two groups ha
 
 ```{r 9.1}
 model <- '
+console.log("enumerating... may take a few minutes")
+var discreteBeta = Infer({method: "enumerate"}, function(){
+  var bins = utils.range(0, 1, .01);
+  var params = {a: 1, b: 1};
+  var probs = map(function(b){ Math.exp(Beta(params).score(b)) } , bins);
+  return bins[discrete(probs)];
+});
+
 var model = function(){
-  var theta1 = beta(1,1);
-  var theta2 = beta(1,1);
+  var nullModel = flip();
+  var commonTheta = nullModel ? sample(discreteBeta) : null;
+  var theta1 = nullModel ? commonTheta : sample(discreteBeta);
+  var theta2 = nullModel ? commonTheta : sample(discreteBeta);
 
   observe({
     data: data.s1,
@@ -319,10 +329,11 @@ var model = function(){
     link: Binomial({n: data.n2[0], p: theta2})
   })
 
-  var theta1_prior = beta(1,1);
-  var theta2_prior = beta(1,1);
+  //var theta1_prior = beta(1,1);
+  //var theta2_prior = beta(1,1);
 
   return {
+    nullModel: nullModel,
     delta: theta1 - theta2,
     //delta_prior: theta1_prior - theta2_prior
   }
@@ -349,62 +360,44 @@ log.BF01 <- lchoose(n1,s1) + lchoose(n2,s2) +
 
 BF01 <- exp(log.BF01)
 
-numSamples = 3000
 rs <- webppl(model,
        model_var= "model",
-       inference_opts = list(method = "MCMC",
-                             kernel = list(
-                               HMC = list(
-                                 steps = 5,
-                                 stepSize = 0.01
-                               )
-                             ),
-                             samples = numSamples,
-                             burn = numSamples/2,
+       inference_opts = list(method = "enumerate",
                              verbose = TRUE),
       packages = c("./utils"),
-      output_format = "samples",
       data = observed_data,
       data_var = "data"
 )
 
-rs.tidy <- rs %>% 
-  gather(param, value)
+ggplot(rs %>% group_by(delta) %>% summarize(prob = sum(prob)), 
+       aes(x = delta, y = prob))+
+  geom_line()
 
-ggplot(rs.tidy, aes(x = value))+
-  geom_histogram()+
-  facet_wrap(~param, scales = 'free')
-
+ggplot(rs %>% group_by(nullModel) %>% summarize(prob = sum(prob)), 
+       aes(x = nullModel, y = prob))+
+  geom_bar(stat = 'identity')
 ```
 
 ```{r}
-# note the bounds
-fit.prior     <- logspline(rs$delta_prior, lbound=-1, ubound=1) 
-fit.posterior <- logspline(rs$delta, lbound=-1, ubound=1)
+nullProbsTable <- rs %>% 
+  group_by(nullModel) %>% 
+  summarize(prob = sum(prob)) 
 
-# 95% credible interval
-x0 <- qlogspline(0.025,fit.posterior)
-x1 <- qlogspline(0.975,fit.posterior)
+BF01 = nullProbsTable[2,2]/ nullProbsTable[1,2] 
 
-# posterior density at critical value: delta = 0
-posteriorProbability <- dlogspline(0, fit.posterior)
+print(paste("The null hypothesis is", BF01, "times more likely than the alternative hypothesis."))
 
-# prior density at critical value: delta = 0
-priorProbability <- dlogspline(0, fit.prior)
+print(paste("In order words, the alternative hypothesis is", 1/BF01, "times more likely than the null hypothesis."))
 
 # -- Exact solution: 2.223484
 
-# bayes factor 10: alternative vs. null
-BF10 <- 1/posteriorProbability/priorProbability
-
-print(paste("The alternative hypothesis is", BF10, "times more likely than the null hypothesis."))
 ```
 
 
 ### Exercise 9.1.4
 
 For the pledger data, a frequentist test for equality of proportions
-indicates that p ≈ 0.006. This tells us that when H0 is true (i.e., the proportions
+indicates that p ~ 0.006. This tells us that when H0 is true (i.e., the proportions
 of condom users are equal in the two groups), then the probability
 is about 0.006 that we would encounter a result at least as extreme as the
 one that was in fact observed. What conclusions would you draw based on
