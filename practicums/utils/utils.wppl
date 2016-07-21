@@ -28,3 +28,28 @@ var marginalize = function(myERP, label){
 var probability = function(x, Dist) {
     return exp(Dist.score(x));
 }
+
+// helper existential function, otherwise 0 ? returns false
+var exists = function(x){
+  return (x == 0) ? true : x ? true: false
+}
+
+// e.g. DiscreteGaussian({mu: 3, sigma: 10})
+// e.g. DiscreteGaussian({mu: 3, sigma: 3, upper: 5})
+// e.g. DiscreteGaussian({mu: 3, sigma: 10, lower: 0, upper: 3})
+var DiscreteGaussian = function(params) {
+  var mu = params.mu, sigma = params.sigma;
+  var lowerBound = exists(params.lower) ? params.lower : 1;
+  var upperBound = exists(params.upper) ? params.upper : 7;
+  var binWidth = exists(params.binWidth) ? params.binWidth : 1;
+  var bins = utils.range(lowerBound, upperBound+1, binWidth);
+  var discreteProbs = map(function(b){
+    return Math.exp(Gaussian({mu:mu, sigma:sigma}).score(b));
+  }, bins);
+  return Categorical({ps: discreteProbs, vs: bins});
+};
+
+// helper existential function, otherwise 0 ? returns false
+var exists = function(x){
+  return (x == 0) ? true : x ? true: false
+}
