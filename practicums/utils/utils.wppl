@@ -43,9 +43,12 @@ var DiscreteGaussian = function(params) {
   var upperBound = exists(params.upper) ? params.upper : 7;
   var binWidth = exists(params.binWidth) ? params.binWidth : 1;
   var bins = utils.range(lowerBound, upperBound+1, binWidth);
-  var discreteProbs = map(function(b){
-    return Math.exp(Gaussian({mu:mu, sigma:sigma}).score(b));
-  }, bins);
+  // Categorical doesn't normalize for us, so we need to prenormalize
+  // and make sure all the bins have at least epsilon probability to enforce support
+  var discreteProbs = normalize(map(function(b){
+    return (Math.exp(Gaussian({mu:mu, sigma:sigma}).score(b))
+	    + Number.EPSILON);
+  }, bins));
   return Categorical({ps: discreteProbs, vs: bins});
 };
 
