@@ -53,3 +53,13 @@ var DiscreteGaussian = function(params) {
 var exists = function(x){
   return (x == 0) ? true : x ? true: false
 }
+
+// e.g. gaussianCDF({mu: 3.5, sigma:1, x: 2})
+var gaussianCDF = function(params){
+  var x = params.x;
+  var mu = exists(params.mu) ? params.mu : 0;
+  var sigma = exists(params.sigma) ? params.sigma : 1;
+  var erfNum = x - mu;
+  var erfDen = sigma * Math.sqrt(2);
+  return (1/2)*(1 + utils.erf(erfNum/erfDen))
+}

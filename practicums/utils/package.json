@@ -8,6 +8,7 @@
   "headers":["header.js"]
   },
   "dependencies" : {
-    "underscore" : "~1.8"
+    "underscore" : "~1.8",
+    "compute-erf" : ""
   }
 }

@@ -1,4 +1,5 @@
 var _ = require("underscore");
+var erf = require( 'compute-erf' );
 
 function isNumeric(num){
   return !isNaN(num);
@@ -16,6 +17,10 @@ function fillArray(value, len) {
   return arr;
 };
 
+function erf(x){
+  return erf(x)
+}
+
 module.exports = {
   parseFloat: parseFloat,
   isNumeric: isNumeric,
@@ -24,5 +29,6 @@ module.exports = {
   range: _.range,
   object: _.object,
   pluck: _.pluck,
-  uniq: _.uniq
+  uniq: _.uniq,
+  erf: erf
 };
