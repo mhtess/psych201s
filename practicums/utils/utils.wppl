@@ -66,3 +66,21 @@ var gaussianCDF = function(params){
   var erfDen = sigma * Math.sqrt(2);
   return (1/2)*(1 + utils.erf(erfNum/erfDen))
 }
+
+// OrdinalLink({thresholds: [1.5, 2.5, 3.5, 4.5, 5.5, 6.5], 
+  //  mu: 1, sigma:2.5})
+
+var OrdinalLink = function(params){
+  var thresholds = params.thresholds;
+  var mu = params.mu, sigma = params.sigma;
+  var bins = utils.range(lowerBound, upperBound+1, binWidth);
+
+  var probs = mapIndexed(function(i, b){
+    i == 0 ? gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) :
+    i == thresholds.length ? 1 - gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}) :
+    Math.max(Number.EPSILON, gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) - 
+                gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}))
+  }, bins)
+
+  return Categorical({ps: probs, vs: bins});
+}
