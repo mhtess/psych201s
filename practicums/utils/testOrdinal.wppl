@@ -1,0 +1,66 @@
+var lowerBound = 1, upperBound = 7, binWidth = 1;
+
+
+// thresholds
+
+var OrdinalLink = function(params){
+	var thresholds = params.thresholds;
+	var mu = params.mu, sigma = params.sigma;
+	var bins = utils.range(lowerBound, upperBound+1, binWidth);
+
+	var probs = mapIndexed(function(i, b){
+		i == 0 ? gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) :
+		i == thresholds.length ? 1 - gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}) :
+		Math.max(Number.EPSILON, gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) - 
+								gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}))
+	}, bins)
+
+  return Categorical({ps: probs, vs: bins});
+}
+
+var generateLikert = function(){
+	var metric = gaussian(4,3);
+	// var thresholds = [1.5, 2.5, 3.5, 4.5, 5.5, 6.5];
+	var thresholds = [1.5, 2.25, 3, 5, 5.75, 6.5];
+	filter(function(x){
+		x == 1 ? metric < thresholds[0] :
+		x == 7 ? metric > thresholds[5] :
+		(metric > thresholds[x-2]) & (metric < thresholds[x-1]);
+	}, utils.range(1,8,1))[0];
+};
+
+var data = repeat(100, generateLikert);
+
+var model = function(){
+	var thresholds = map(function(b){
+		b == lowerBound ? lowerBound + binWidth/2 :
+		b == (upperBound-1) ? upperBound - binWidth/2 :
+		gaussian(b + 0.5, 1/2)
+	}, utils.range(lowerBound, upperBound, binWidth) )
+
+	var mu = sample(UniformDrift({a: 1, b:7, r:0.5}));
+	var sigma = sample(UniformDrift({a: 0, b:5, r:0.5}));
+
+	observe({
+		data: data,
+		link: OrdinalLink({thresholds: thresholds, mu: mu, sigma: sigma})
+	})
+
+	return {mu: mu, sigma: sigma}
+	//utils.extend({mu: mu, sigma: sigma},
+	//	utils.object(_.zip(utils.range(1,7,1), thresholds));
+}
+
+
+// OrdinalLink({thresholds: thresholds, mu: 1, sigma:2.5})
+
+
+//   for ( i in 1:Ntotal ) {
+//     y[i]  ̃ dcat( pr[i,1:nYlevels] )
+//     pr[i,1] <- pnorm( thresh[1] , mu , 1/sigmaˆ2 )
+//     for ( k in 2:(nYlevels-1) ) {
+//       pr[i,k] <- max( 0 ,  pnorm( thresh[ k ] , mu , 1/sigmaˆ2 )
+//                          - pnorm( thresh[k-1] , mu , 1/sigmaˆ2 ) )
+// }
+//     pr[i,nYlevels] <- 1 - pnorm( thresh[nYlevels-1] , mu , 1/sigmaˆ2 )
+//   }
