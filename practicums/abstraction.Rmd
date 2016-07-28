@@ -1,0 +1,54 @@
+---
+title: "blessing of abstraction"
+author: "mht"
+date: "July 27, 2016"
+output: html_document
+---
+
+
+```{r}
+library(rwebppl)
+library(dyplr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r}
+model = '
+var globalMean = 40;
+var globalStdev = {
+  lowDispersion: 6,
+  highDispersion: 12
+};
+
+var machineStdev = 5;
+
+var machineData = function(condition){
+  var machineMean = gaussian(globalMean, globalStdev[condition]);
+  return repeat(10, function() { gaussian(machineMean, machineStdev) } );
+};
+
+var sequenceData = _.flatten(repeat(10, 
+          function() { machineData(myCondition[0]) } ));
+
+sequenceData
+'
+
+seqData <- webppl(
+  model, 
+  data = "lowDispersion", 
+  data_var = "myCondition"
+  )
+```
+
+
+```{r}
+df <- data.frame(seqData)
+df <- df %>% mutate(i = to.n(row.names(df)))
+
+ggplot(df, aes( x = i, y = seqData)) +
+  geom_point() + 
+  geom_line() + 
+  ylim(0, 100)
+
+```
