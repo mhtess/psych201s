@@ -14,7 +14,7 @@ library(ggplot2)
 ```
 
 ```{r}
-model = '
+stimulusModel <- '
 var globalMean = 40;
 var globalStdev = {
   lowDispersion: 6,
@@ -25,17 +25,17 @@ var machineStdev = 5;
 
 var machineData = function(condition){
   var machineMean = gaussian(globalMean, globalStdev[condition]);
-  return repeat(10, function() { gaussian(machineMean, machineStdev) } );
+  return repeat(10, function() { return {trueMean: machineMean, observation: gaussian(machineMean, machineStdev) } } );
 };
 
 var sequenceData = _.flatten(repeat(10, 
-          function() { machineData(myCondition[0]) } ));
+          function() { machineData(myCondition[0]) } )) ;
 
 sequenceData
 '
 
 seqData <- webppl(
-  model, 
+  stimulusModel,
   data = "lowDispersion", 
   data_var = "myCondition"
   )
@@ -50,5 +50,57 @@ ggplot(df, aes( x = i, y = seqData)) +
   geom_point() + 
   geom_line() + 
   ylim(0, 100)
-
 ```
+
+
+
+```{r}
+cognitiveModel <- '
+var globalMean = 40;
+var globalStdev = {
+  lowDispersion: 6,
+  highDispersion: 12
+};
+
+var machineStdev = 5;
+
+var cognitiveModel = function(){
+  var whichMachine = flip() ? "lowDispersion" : "highDispersion";
+  var machineMean = gaussian(globalMean, globalStdev[whichMachine]);
+  observe({
+    data: stimulus_data,
+    link: Gaussian({mu: machineMean, sigma: machineStdev})
+  });
+  var prediction = gaussian({mu: machineMean, sigma: machineStdev})
+  return prediction
+}
+'
+```
+
+
+```{r}
+
+# specific learning curve
+# simulate 1st block of trials (trials 1 - 10)
+numSamples = 10000
+sq_err = list()
+true_mean = seqData[1, "trueMean"]
+for (trial_num in seq(1,10,1)){
+  stimuli_so_far = seqData[1:trial_num,"observation"]
+  model_predictions = webppl(cognitiveModel, data = stimuli_so_far, data_var = "stimulus_data",
+                             inference_opts = list(method = "MCMC", samples = numSamples, burn = numSamples / 2,
+                                                   verbose = TRUE), model_var = "cognitiveModel", output_format = "samples",
+                             packages = c("./utils"))
+  posterior_mean = mean(model_predictions$support)
+  sq_err[trial_num] = (true_mean - posterior_mean)^2
+}
+
+
+results <- data.frame(observations = seq(1,10,1),
+           squared_error = unlist(sq_err))
+
+ggplot(results, aes( x = observations, y = squared_error))+
+  geom_point()+
+  geom_line()
+```
+
