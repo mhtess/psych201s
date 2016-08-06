@@ -73,6 +73,10 @@ var gaussianCDF = function(params){
 var OrdinalLink = function(params){
   var thresholds = params.thresholds;
   var mu = params.mu, sigma = params.sigma;
+  var lowerBound = exists(params.lower) ? params.lower : 1;
+  var upperBound = exists(params.upper) ? params.upper : 7;
+  var binWidth = exists(params.binWidth) ? params.binWidth : 1;
+  
   var bins = utils.range(lowerBound, upperBound+1, binWidth);
 
   var probs = mapIndexed(function(i, b){
